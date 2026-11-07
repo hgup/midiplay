@@ -57,8 +57,48 @@ class MuseScoreWindowManager:
         return ""
 
     @classmethod
+    def is_musescore_or_self_focused(cls, self_pid: int) -> bool:
+        """Returns True if the active foreground window is MuseScore 4 or midiplay itself."""
+        fg = user32.GetForegroundWindow()
+        if not fg:
+            return False
+        pid = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(fg, ctypes.byref(pid))
+        if pid.value == self_pid:
+            return True
+        pname = cls.get_process_name(pid.value)
+        return "musescore" in pname
+
+    @classmethod
+    def set_window_topmost(cls, hwnd: int, topmost: bool) -> bool:
+        """Dynamically updates window z-order (HWND_TOPMOST vs HWND_NOTOPMOST) with zero visual flicker."""
+        HWND_TOPMOST = -1
+        HWND_NOTOPMOST = -2
+        SWP_NOMOVE = 0x0002
+        SWP_NOSIZE = 0x0001
+        SWP_NOACTIVATE = 0x0010
+        SWP_SHOWWINDOW = 0x0040
+
+        if topmost:
+            flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW
+            res = user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
+            user32.BringWindowToTop(hwnd)
+            return bool(res)
+        else:
+            flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+            return bool(user32.SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags))
+
+    @classmethod
     def find_musescore_hwnd(cls) -> Optional[int]:
         """Finds active MuseScore 4 top-level window handle."""
+        # 1. Quick check if MuseScore is currently the active foreground window
+        fg = user32.GetForegroundWindow()
+        if fg:
+            pid = ctypes.c_ulong()
+            user32.GetWindowThreadProcessId(fg, ctypes.byref(pid))
+            if "musescore" in cls.get_process_name(pid.value):
+                return fg
+
         found_windows = []
 
         def enum_cb(hwnd, lparam):
@@ -74,12 +114,25 @@ class MuseScoreWindowManager:
                     # Filter out small background splash/helper windows
                     if w > 400 and h > 300:
                         found_windows.append(hwnd)
-            return True
+            return 1
 
-        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        from ctypes import wintypes
+        WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
         user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
 
         return found_windows[0] if found_windows else None
+
+    @classmethod
+    def get_window_title(cls, hwnd: int) -> str:
+        """Returns the title text of the given window."""
+        if not hwnd or not user32.IsWindow(hwnd):
+            return ""
+        length = user32.GetWindowTextLengthW(hwnd)
+        if length <= 0:
+            return ""
+        buf = ctypes.create_unicode_buffer(length + 1)
+        user32.GetWindowTextW(hwnd, buf, length + 1)
+        return buf.value
 
     @classmethod
     def get_window_rect(cls, hwnd: int) -> Optional[Tuple[int, int, int, int]]:

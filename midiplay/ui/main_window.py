@@ -3,8 +3,13 @@ Main Floating HUD Window and Core Controller for midiplay.
 """
 
 from __future__ import annotations
+import os
+import json
 import time
 import threading
+import ctypes
+from ctypes import wintypes
+from pathlib import Path
 from typing import List, Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -27,7 +32,7 @@ from midiplay.ui.styles import LIGHT_THEME_QSS, DARK_THEME_QSS
 from midiplay.utils.global_hotkey import GlobalHotkeyManager
 from midiplay.utils.config import ConfigManager
 from midiplay.utils.musescore_window import MuseScoreWindowManager
-from midiplay.utils.bpm_detector import detect_musescore_bpm
+from midiplay.utils.musescore_sync import MuseScoreSyncManager
 
 
 class MainWindow(QMainWindow):
@@ -41,15 +46,21 @@ class MainWindow(QMainWindow):
     global_copy_triggered = pyqtSignal()
     global_clear_triggered = pyqtSignal()
     global_arm_triggered = pyqtSignal()
+    record_start_signal = pyqtSignal()
+    record_stop_signal = pyqtSignal()
+    record_restart_signal = pyqtSignal()
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("midiplay — MuseScore Bridge")
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.WindowDoesNotAcceptFocus
         )
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         # Core Engines
         self.audio_engine = AudioEngine()
@@ -83,7 +94,14 @@ class MainWindow(QMainWindow):
         self.musescore_version: str = "4.70"
         self.synth_muted: bool = False
         self.current_theme: str = ConfigManager.get_theme()
-        self.is_docked: bool = False
+        self._self_pid: int = os.getpid()
+        self._is_topmost: bool = False
+        self.musescore_sync = MuseScoreSyncManager()
+
+        # Debounced position persistence timer
+        self._pos_save_timer = QTimer(self)
+        self._pos_save_timer.setSingleShot(True)
+        self._pos_save_timer.timeout.connect(lambda: ConfigManager.set_window_pos(self.x(), self.y()))
 
         # Calibration dialog reference
         self.calib_dialog: Optional[CalibrationDialog] = None
@@ -100,13 +118,24 @@ class MainWindow(QMainWindow):
         self.global_clear_triggered.connect(self.clear_buffer)
         self.global_arm_triggered.connect(self._toggle_arm_hotkey)
 
-        # Start Global Hotkeys
+        self.record_start_signal.connect(self._start_recording_hotkey)
+        self.record_stop_signal.connect(self._stop_recording_hotkey)
+        self.record_restart_signal.connect(self.restart_recording)
+
+        # Start Global Hotkeys with context-aware state machine
         self.hotkey_manager = GlobalHotkeyManager(
-            on_space_toggle=lambda: self.global_space_triggered.emit(),
+            on_start_record=lambda: self.record_start_signal.emit(),
+            on_stop_record=lambda: self.record_stop_signal.emit(),
+            on_restart_record=lambda: self.record_restart_signal.emit(),
             on_copy_shortcut=lambda: self.global_copy_triggered.emit(),
             on_arm_toggle=lambda: self.global_arm_triggered.emit()
         )
         self.hotkey_manager.start()
+
+        # Poll window focus and MuseScore state file (every 150ms)
+        self._poll_timer = QTimer(self)
+        self._poll_timer.timeout.connect(self._poll_focus_and_state)
+        self._poll_timer.start(150)
 
         # Initial device port scan
         self._refresh_midi_ports()
@@ -130,8 +159,8 @@ class MainWindow(QMainWindow):
         self.transport_bar.time_sig_changed.connect(self._on_time_sig_changed)
         self.transport_bar.grid_changed.connect(self._on_grid_changed)
         self.transport_bar.insert_clicked.connect(self.quantize_and_insert)
+        self.transport_bar.status_clicked.connect(lambda: self.sync_from_plugin(show_status=True))
         self.transport_bar.drawer_toggled.connect(self._set_drawer_visible)
-        self.transport_bar.snap_clicked.connect(self.snap_to_musescore)
         self.transport_bar.close_clicked.connect(self.close)
         self.main_layout.addWidget(self.transport_bar)
 
@@ -160,11 +189,14 @@ class MainWindow(QMainWindow):
         row1.addWidget(self.audio_device_combo, 3)
 
         self.mute_synth_cb = QCheckBox("Mute Synth")
+        saved_mute_synth = ConfigManager.get_mute_synth()
+        self.mute_synth_cb.setChecked(saved_mute_synth)
+        self.synth_muted = saved_mute_synth
         self.mute_synth_cb.setToolTip("Silences local piano synth if your keyboard or MuseScore already plays sound")
         self.mute_synth_cb.toggled.connect(self._on_mute_synth_toggled)
         row1.addWidget(self.mute_synth_cb)
 
-        self.theme_btn = QPushButton("🌙 Dark" if self.current_theme == "light" else "☀️ Light")
+        self.theme_btn = QPushButton("Dark" if self.current_theme == "light" else "Light")
         self.theme_btn.setToolTip("Toggle Light / Dark Theme")
         self.theme_btn.clicked.connect(self._toggle_theme)
         row1.addWidget(self.theme_btn)
@@ -177,6 +209,13 @@ class MainWindow(QMainWindow):
         self.mode_combo.addItem("Chords & Lead", RecordingMode.CHORDS_AND_LEAD)
         self.mode_combo.addItem("Strict Lead", RecordingMode.STRICT_LEAD)
         self.mode_combo.addItem("Polyphonic", RecordingMode.POLYPHONIC)
+        saved_mode = ConfigManager.get_recording_mode()
+        idx_m = self.mode_combo.findText(saved_mode)
+        if idx_m != -1:
+            self.mode_combo.setCurrentIndex(idx_m)
+            m_data = self.mode_combo.currentData()
+            if m_data:
+                self.quantizer.mode = m_data
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         row2.addWidget(self.mode_combo)
 
@@ -193,6 +232,9 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.auto_key_btn)
 
         self.grand_staff_cb = QCheckBox("Grand Staff (C4)")
+        saved_grand_staff = ConfigManager.get_split_grand_staff()
+        self.grand_staff_cb.setChecked(saved_grand_staff)
+        self.split_grand_staff = saved_grand_staff
         self.grand_staff_cb.toggled.connect(self._on_grand_staff_toggled)
         row2.addWidget(self.grand_staff_cb)
 
@@ -207,12 +249,20 @@ class MainWindow(QMainWindow):
         self.count_in_combo.addItem("None (Instant)", 0)
         self.count_in_combo.addItem("1 Bar", 1)
         self.count_in_combo.addItem("2 Bars", 2)
+        saved_count_in = ConfigManager.get_count_in_bars()
+        idx_ci = self.count_in_combo.findData(saved_count_in)
+        if idx_ci != -1:
+            self.count_in_combo.setCurrentIndex(idx_ci)
+        self.clock.set_count_in_bars(saved_count_in)
         self.count_in_combo.currentIndexChanged.connect(self._on_count_in_changed)
         row2.addWidget(self.count_in_combo)
 
         self.mute_click_cb = QCheckBox("Mute Click")
+        saved_mute_click = ConfigManager.get_mute_click()
+        self.mute_click_cb.setChecked(saved_mute_click)
+        self.audio_engine.set_metronome_muted(saved_mute_click)
         self.mute_click_cb.setToolTip("Mutes local click during MuseScore play-along")
-        self.mute_click_cb.toggled.connect(lambda v: self.audio_engine.set_metronome_muted(v))
+        self.mute_click_cb.toggled.connect(self._on_mute_click_toggled)
         row2.addWidget(self.mute_click_cb)
         self.drawer_layout.addLayout(row2)
 
@@ -229,7 +279,9 @@ class MainWindow(QMainWindow):
         row4.addWidget(QLabel("Sync Delay:"))
         self.sync_delay_spin = QSpinBox()
         self.sync_delay_spin.setRange(0, 300)
-        self.sync_delay_spin.setValue(45)
+        saved_sync_delay = ConfigManager.get_sync_delay_ms()
+        self.sync_delay_spin.setValue(int(saved_sync_delay))
+        self.clock.set_sync_delay_ms(saved_sync_delay)
         self.sync_delay_spin.setSuffix(" ms")
         self.sync_delay_spin.setToolTip("Delays midiplay's click to match MuseScore audio playback startup latency")
         self.sync_delay_spin.valueChanged.connect(self._on_sync_delay_changed)
@@ -238,11 +290,13 @@ class MainWindow(QMainWindow):
         row4.addWidget(QLabel("Offset:"))
         self.latency_slider = QSlider(Qt.Orientation.Horizontal)
         self.latency_slider.setRange(-100, 100)
-        self.latency_slider.setValue(0)
+        saved_offset = ConfigManager.get_latency_offset_ms()
+        self.latency_slider.setValue(int(saved_offset))
+        self.clock.set_latency_offset_ms(saved_offset)
         self.latency_slider.valueChanged.connect(self._on_latency_slider_changed)
         row4.addWidget(self.latency_slider)
 
-        self.latency_val_label = QLabel("+0 ms")
+        self.latency_val_label = QLabel(f"{int(saved_offset):+d} ms")
         self.latency_val_label.setFixedWidth(45)
         row4.addWidget(self.latency_val_label)
 
@@ -261,15 +315,61 @@ class MainWindow(QMainWindow):
         self.set_theme(self.current_theme)
         self.adjustSize()
         self.raise_()
-        self.activateWindow()
 
-        # Background sync timer for BPM detection and docked window following
-        self.sync_timer = QTimer(self)
-        self.sync_timer.timeout.connect(self._sync_with_musescore)
-        self.sync_timer.start(2000)
+        # Apply Win32 WS_EX_NOACTIVATE so midiplay never steals focus from MuseScore
+        try:
+            hwnd = int(self.winId())
+            user32 = ctypes.windll.user32
+            GWL_EXSTYLE = -20
+            WS_EX_NOACTIVATE = 0x08000000
+            SWP_FLAGS = 0x0002 | 0x0001 | 0x0010 | 0x0020  # NOMOVE | NOSIZE | NOACTIVATE | FRAMECHANGED
+            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_NOACTIVATE)
+            user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_FLAGS)
+        except Exception:
+            pass
 
-        # Attempt initial snap to MuseScore toolbar after UI initializes
-        QTimer.singleShot(600, self.snap_to_musescore)
+        # Zero-focus policy: ensure all controls reject keyboard focus
+        self._apply_no_focus_recursively(self)
+
+        # Restore user's custom window position
+        saved_pos = ConfigManager.get_window_pos()
+        if saved_pos:
+            self.move(saved_pos[0], saved_pos[1])
+        else:
+            self.move(300, 40)
+
+    def _apply_no_focus_recursively(self, root: QWidget) -> None:
+        """Enforces Qt.FocusPolicy.NoFocus on all widgets so midiplay never steals keyboard focus."""
+        root.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        for child in root.findChildren(QWidget):
+            child.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    def nativeEvent(self, eventType, message):
+        """Win32 event hook: handles WM_MOUSEACTIVATE to keep MuseScore active when midiplay is clicked."""
+        try:
+            msg = wintypes.MSG.from_address(int(message))
+            WM_MOUSEACTIVATE = 0x0021
+            MA_NOACTIVATE = 3
+            if msg.message == WM_MOUSEACTIVATE:
+                return True, MA_NOACTIVATE
+        except Exception:
+            pass
+        return False, 0
+
+    def keyPressEvent(self, event) -> None:
+        """Rejects all focus-based key events — midiplay only responds to global OS-level hotkeys."""
+        event.ignore()
+
+    def keyReleaseEvent(self, event) -> None:
+        """Rejects all focus-based key events — midiplay only responds to global OS-level hotkeys."""
+        event.ignore()
+
+    def moveEvent(self, event) -> None:
+        """Debounced position save during/after window movement."""
+        super().moveEvent(event)
+        if hasattr(self, '_pos_save_timer'):
+            self._pos_save_timer.start(500)
 
     def set_theme(self, theme_mode: str) -> None:
         self.current_theme = theme_mode
@@ -280,33 +380,38 @@ class MainWindow(QMainWindow):
         if app:
             app.setStyleSheet(qss)
         if hasattr(self, 'theme_btn'):
-            self.theme_btn.setText("🌙 Dark" if theme_mode == "light" else "☀️ Light")
+            self.theme_btn.setText("Dark" if theme_mode == "light" else "Light")
+        if hasattr(self, 'transport_bar'):
+            self.transport_bar.set_theme(theme_mode)
         self.piano_roll.set_theme(theme_mode)
 
     def _toggle_theme(self) -> None:
         new_theme = "dark" if self.current_theme == "light" else "light"
         self.set_theme(new_theme)
 
-    # --- Drawer Visibility & Sizing ---
+    # --- Drawer Visibility & Sizing (Anchored to Top-Right Corner) ---
     def _set_drawer_visible(self, visible: bool) -> None:
+        top_right_x = self.x() + self.width()
+        top_right_y = self.y()
+
         self.drawer_widget.setVisible(visible)
         self.transport_bar.drawer_expanded = visible
         self.transport_bar.drawer_btn.setText("▲" if visible else "▼")
-        from PyQt6.QtWidgets import QApplication
-        QApplication.processEvents()
 
         if visible:
-            self.setMinimumWidth(800)
-            self.adjustSize()
+            self._apply_no_focus_recursively(self.drawer_widget)
+            target_w = 820
+            target_h = 270
+            self.setMinimumSize(target_w, 268)
+            self.setMaximumSize(16777215, 16777215)
+            self.setGeometry(top_right_x - target_w, top_right_y, target_w, target_h)
         else:
-            self.setMinimumWidth(0)
+            self.setMinimumSize(0, 0)
+            self.setMaximumSize(16777215, 34)
             self.setFixedHeight(34)
-            QApplication.processEvents()
-            self.setMaximumHeight(16777215)
-            self.setMinimumHeight(0)
-
-    def _on_arm_toggled(self, armed: bool) -> None:
-        self.hotkey_manager.set_space_sync_enabled(armed)
+            self.adjustSize()
+            compact_w = self.width()
+            self.move(top_right_x - compact_w, top_right_y)
 
     # --- MIDI Ports ---
     def _refresh_midi_ports(self) -> None:
@@ -316,11 +421,17 @@ class MainWindow(QMainWindow):
         if not ports:
             self.midi_port_combo.addItem("No MIDI Devices Connected", None)
         else:
-            for p in ports:
+            saved_port = ConfigManager.get_midi_port()
+            selected_idx = 0
+            for idx, p in enumerate(ports):
                 self.midi_port_combo.addItem(p, p)
-            # Open first port by default if none active
-            if self.midi_manager.current_port_name is None:
-                self.midi_manager.open_port(0)
+                if saved_port and p == saved_port:
+                    selected_idx = idx
+
+            self.midi_port_combo.setCurrentIndex(selected_idx)
+            chosen_port = ports[selected_idx]
+            if self.midi_manager.current_port_name != chosen_port:
+                self.midi_manager.open_port(chosen_port)
         self.midi_port_combo.blockSignals(False)
 
     def _on_ports_changed(self, ports: List[str]) -> None:
@@ -330,23 +441,30 @@ class MainWindow(QMainWindow):
         port_name = self.midi_port_combo.currentData()
         if port_name:
             self.midi_manager.open_port(port_name)
+            ConfigManager.set_midi_port(port_name)
 
     # --- Audio Devices ---
     def _refresh_audio_devices(self) -> None:
         devices = self.audio_engine.get_output_devices()
         self.audio_device_combo.blockSignals(True)
         self.audio_device_combo.clear()
-        
+
         current_idx = self.audio_engine.current_device_index
+        saved_device = ConfigManager.get_audio_device()
         selected_combo_idx = 0
 
         for combo_idx, (dev_idx, dev_name, is_wasapi) in enumerate(devices):
             self.audio_device_combo.addItem(dev_name, dev_idx)
-            if dev_idx == current_idx:
+            if saved_device and dev_name == saved_device:
+                selected_combo_idx = combo_idx
+            elif not saved_device and dev_idx == current_idx:
                 selected_combo_idx = combo_idx
 
         if devices:
             self.audio_device_combo.setCurrentIndex(selected_combo_idx)
+            chosen_dev = devices[selected_combo_idx][0]
+            if chosen_dev != current_idx:
+                self.audio_engine.set_output_device(chosen_dev)
 
         self.audio_device_combo.blockSignals(False)
 
@@ -354,14 +472,42 @@ class MainWindow(QMainWindow):
         dev_idx = self.audio_device_combo.currentData()
         if dev_idx is not None:
             self.audio_engine.set_output_device(dev_idx)
+            ConfigManager.set_audio_device(self.audio_device_combo.currentText())
 
     def _on_mute_synth_toggled(self, checked: bool) -> None:
         self.synth_muted = checked
         if checked:
             self.audio_engine.all_notes_off()
+        ConfigManager.set_mute_synth(checked)
+
+    def _on_mute_click_toggled(self, checked: bool) -> None:
+        self.audio_engine.set_metronome_muted(checked)
+        ConfigManager.set_mute_click(checked)
 
     # --- Transport & Recording ---
+    def _start_recording_hotkey(self) -> None:
+        """Triggered by Shift+Space when ARM=on."""
+        if not self.transport_bar.record_btn.isChecked():
+            self.transport_bar.record_btn.setChecked(True)
+
+    def _stop_recording_hotkey(self) -> None:
+        """Triggered by plain Space while recording."""
+        if self.transport_bar.record_btn.isChecked():
+            self.transport_bar.record_btn.setChecked(False)
+
+    def restart_recording(self) -> None:
+        """Restarts current take immediately on Shift+Space while recording (no insert)."""
+        self.recorded_events.clear()
+        self.piano_roll.clear()
+        self.clock.stop()
+        self.clock.start_recording()
+        self.transport_bar.set_status("RESTART", "COUNT_IN")
+        self.transport_bar.set_recording_active(True)
+        QTimer.singleShot(800, lambda: self.transport_bar.set_status("RECORDING", "RECORDING"))
+
     def _on_record_toggled(self, active: bool) -> None:
+        self.hotkey_manager.set_recording(active)
+        self.transport_bar.set_recording_active(active)
         if active:
             self.recorded_events.clear()
             self.piano_roll.clear()
@@ -370,6 +516,12 @@ class MainWindow(QMainWindow):
             self.clock.stop()
             self._on_recording_stopped()
 
+    def _on_recording_stopped(self) -> None:
+        if self.recorded_events:
+            self.quantize_and_insert()
+        else:
+            self.transport_bar.set_status("IDLE", "IDLE")
+
     def _on_space_toggled(self) -> None:
         is_rec = self.clock.state in (TransportState.COUNT_IN, TransportState.RECORDING)
         self.transport_bar.record_btn.setChecked(not is_rec)
@@ -377,11 +529,69 @@ class MainWindow(QMainWindow):
     def _toggle_arm_hotkey(self) -> None:
         self.transport_bar.arm_btn.setChecked(not self.transport_bar.arm_btn.isChecked())
 
-    def _on_recording_stopped(self) -> None:
-        if self.recorded_events:
-            self.quantize_and_insert()
-        else:
-            self.transport_bar.set_status("IDLE", "IDLE")
+    def _on_arm_toggled(self, armed: bool) -> None:
+        self.hotkey_manager.set_armed(armed)
+
+    def _poll_focus_and_state(self) -> None:
+        """Polls active foreground window for auto-arm & window z-order."""
+        # 1. Focus detection
+        is_focused = MuseScoreWindowManager.is_musescore_or_self_focused(self._self_pid)
+
+        # Auto-arm / disarm based on MuseScore focus (when idle)
+        if not self.hotkey_manager.is_recording:
+            if is_focused != self.hotkey_manager.armed:
+                self.hotkey_manager.set_armed(is_focused)
+                self.transport_bar.arm_btn.blockSignals(True)
+                self.transport_bar.arm_btn.setChecked(is_focused)
+                self.transport_bar._on_arm_toggled(is_focused)
+                self.transport_bar.arm_btn.blockSignals(False)
+
+        # Dynamic Window Stay-on-Top z-order (topmost when MuseScore focused, sink when unfocused)
+        if is_focused != self._is_topmost:
+            self._is_topmost = is_focused
+            hwnd = int(self.winId())
+            MuseScoreWindowManager.set_window_topmost(hwnd, is_focused)
+            if is_focused:
+                self.raise_()
+
+    def sync_from_plugin(self, show_status: bool = True) -> bool:
+        """Pulls tempo and meter from MuseScore plugin on demand (triggered by IDLE button)."""
+        state = self.musescore_sync.get_active_state()
+        if not state:
+            if show_status and not self.hotkey_manager.is_recording:
+                self.transport_bar.set_status("NO SYNC", "IDLE")
+                QTimer.singleShot(1500, lambda: self.transport_bar.set_status("IDLE", "IDLE"))
+            return False
+
+        bpm = state.get("bpm")
+        num = state.get("time_sig_num")
+        den = state.get("time_sig_den")
+        title = state.get("title", "")
+
+        updated = False
+        if bpm and int(bpm) != int(self.clock.bpm):
+            self.clock.set_bpm(float(bpm))
+            self.transport_bar.set_bpm_display(int(bpm))
+            updated = True
+
+        if num and den:
+            meter_str = f"{num}/{den}"
+            if int(num) != self.clock.time_sig_num or int(den) != self.clock.time_sig_den:
+                self.clock.set_time_signature(int(num), int(den))
+                self.transport_bar.meter_combo.blockSignals(True)
+                if self.transport_bar.meter_combo.findText(meter_str) == -1:
+                    self.transport_bar.meter_combo.addItem(meter_str)
+                self.transport_bar.meter_combo.setCurrentText(meter_str)
+                self.transport_bar.meter_combo.blockSignals(False)
+                updated = True
+
+        if show_status and not self.hotkey_manager.is_recording:
+            self.transport_bar.set_status("SYNCED", "COPIED")
+            QTimer.singleShot(1500, lambda: self.transport_bar.set_status("IDLE", "IDLE"))
+            if title:
+                self.transport_bar.status_pill.setToolTip(f"Synced with: {title} (Click to re-sync)")
+
+        return updated
 
     def _quantize_buffer(self) -> None:
         self.current_quantized_chords = self.quantizer.process_raw_events(
@@ -392,51 +602,6 @@ class MainWindow(QMainWindow):
         )
         measure_ticks = int((self.clock.time_sig_num * PPQ * 4) / self.clock.time_sig_den)
         self.piano_roll.set_data(self.current_quantized_chords, measure_ticks)
-
-    def snap_to_musescore(self) -> None:
-        """Positions the toolbar strip flush inside MuseScore 4's empty top toolbar notch."""
-        hwnd = MuseScoreWindowManager.find_musescore_hwnd()
-        if not hwnd:
-            self.transport_bar.set_status("NO MS4", "COUNT_IN")
-            QTimer.singleShot(1500, lambda: self.transport_bar.set_status("IDLE", "IDLE"))
-            return
-
-        pos = MuseScoreWindowManager.calculate_toolbar_notch_pos(
-            hwnd,
-            strip_width=self.width(),
-            strip_height=self.height()
-        )
-        if pos:
-            self.move(pos[0], pos[1])
-            self.is_docked = True
-            self.transport_bar.set_status("DOCKED", "COPIED")
-            QTimer.singleShot(1500, lambda: self.transport_bar.set_status("IDLE", "IDLE"))
-
-    def _sync_with_musescore(self) -> None:
-        """Periodically auto-detects BPM and maintains position if docked to MuseScore."""
-        hwnd = MuseScoreWindowManager.find_musescore_hwnd()
-        if not hwnd:
-            return
-
-        # 1. Attempt to auto-detect BPM from MuseScore playback toolbar
-        try:
-            detected = detect_musescore_bpm(hwnd)
-            if detected and detected != int(self.clock.bpm):
-                self.clock.set_bpm(float(detected))
-                self.transport_bar.set_bpm_display(detected)
-        except Exception:
-            pass
-
-        # 2. If docked, track MuseScore window movements
-        if self.is_docked:
-            pos = MuseScoreWindowManager.calculate_toolbar_notch_pos(
-                hwnd,
-                strip_width=self.width(),
-                strip_height=self.height()
-            )
-            if pos:
-                if abs(self.x() - pos[0]) > 4 or abs(self.y() - pos[1]) > 4:
-                    self.move(pos[0], pos[1])
 
     def quantize_and_insert(self) -> None:
         """Quantizes active buffer, formats MuseScore 4 XML, and auto-inserts into selected measure."""
@@ -556,6 +721,7 @@ class MainWindow(QMainWindow):
 
     def _on_time_sig_changed(self, num: int, den: int) -> None:
         self.clock.set_time_signature(num, den)
+        self._user_meter_override = True
 
     def _on_grid_changed(self, grid: QuantizeGrid) -> None:
         self.quantizer.grid = grid
@@ -564,6 +730,7 @@ class MainWindow(QMainWindow):
         mode = self.mode_combo.currentData()
         if isinstance(mode, RecordingMode):
             self.quantizer.mode = mode
+            ConfigManager.set_recording_mode(self.mode_combo.currentText())
 
     def _on_key_changed(self, index: int) -> None:
         acc = self.key_combo.currentData()
@@ -588,6 +755,7 @@ class MainWindow(QMainWindow):
 
     def _on_grand_staff_toggled(self, checked: bool) -> None:
         self.split_grand_staff = checked
+        ConfigManager.set_split_grand_staff(checked)
 
     def _on_ms_version_changed(self, index: int) -> None:
         ver = self.ms_version_combo.currentData()
@@ -605,20 +773,27 @@ class MainWindow(QMainWindow):
 
     def _on_calibration_offset_changed(self, offset_ms: float) -> None:
         self.latency_slider.setValue(int(offset_ms))
+        self.clock.set_latency_offset_ms(offset_ms)
+        self.latency_val_label.setText(f"{int(offset_ms):+d} ms")
+        ConfigManager.set_latency_offset_ms(offset_ms)
 
     def _on_latency_slider_changed(self, val: int) -> None:
         self.clock.set_latency_offset_ms(float(val))
         self.latency_val_label.setText(f"{val:+d} ms")
+        ConfigManager.set_latency_offset_ms(float(val))
 
     def _on_sync_delay_changed(self, val: int) -> None:
         self.clock.set_sync_delay_ms(float(val))
+        ConfigManager.set_sync_delay_ms(float(val))
 
     def _on_count_in_changed(self, index: int) -> None:
         bars = self.count_in_combo.currentData()
         if isinstance(bars, int):
             self.clock.set_count_in_bars(bars)
+            ConfigManager.set_count_in_bars(bars)
 
     def closeEvent(self, event) -> None:
+        ConfigManager.set_window_pos(self.x(), self.y())
         self.clock.stop()
         self.audio_engine.stop()
         self.midi_manager.close_port()

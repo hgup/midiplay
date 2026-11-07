@@ -45,6 +45,14 @@ class TestThemeAndConfig(unittest.TestCase):
             self.assertIn("ArmBtn", qss)
             self.assertIn("InsertBtn", qss)
             self.assertIn("StatusPill", qss)
+            self.assertIn("BpmBox", qss)
+
+    def test_window_pos_persistence(self):
+        # Default is None
+        self.assertIsNone(ConfigManager.get_window_pos())
+        ConfigManager.set_window_pos(450, 120)
+        self.assertEqual(ConfigManager.get_window_pos(), (450, 120))
+
 
 if __name__ == "__main__":
     unittest.main()
