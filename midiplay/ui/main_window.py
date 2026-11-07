@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
         self.key_accidentals: int = 0
         self.split_grand_staff: bool = False
         self.musescore_version: str = "4.40"
+        self.synth_muted: bool = False
 
         # Calibration dialog reference
         self.calib_dialog: Optional[CalibrationDialog] = None
@@ -98,6 +99,7 @@ class MainWindow(QMainWindow):
 
         # Initial device port scan
         self._refresh_midi_ports()
+        self._refresh_audio_devices()
 
     def _init_ui(self) -> None:
         central_widget = QWidget()
@@ -127,29 +129,39 @@ class MainWindow(QMainWindow):
         self.drawer_layout.setContentsMargins(10, 8, 10, 8)
         self.drawer_layout.setSpacing(8)
 
-        # Drawer Row 1: MIDI Port, Mode & Settings
+        # Drawer Row 1: MIDI Port, Audio Output & Mute Synth
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("MIDI Device:"))
+        row1.addWidget(QLabel("MIDI:"))
         self.midi_port_combo = QComboBox()
         self.midi_port_combo.currentIndexChanged.connect(self._on_port_selected)
-        row1.addWidget(self.midi_port_combo, 1)
+        row1.addWidget(self.midi_port_combo, 2)
 
         self.refresh_ports_btn = QPushButton("↻")
         self.refresh_ports_btn.setFixedWidth(26)
         self.refresh_ports_btn.clicked.connect(self._refresh_midi_ports)
         row1.addWidget(self.refresh_ports_btn)
 
-        row1.addWidget(QLabel("Mode:"))
+        row1.addWidget(QLabel("Audio:"))
+        self.audio_device_combo = QComboBox()
+        self.audio_device_combo.currentIndexChanged.connect(self._on_audio_device_selected)
+        row1.addWidget(self.audio_device_combo, 3)
+
+        self.mute_synth_cb = QCheckBox("Mute Synth")
+        self.mute_synth_cb.setToolTip("Silences local piano synth if your keyboard or MuseScore already plays sound")
+        self.mute_synth_cb.toggled.connect(self._on_mute_synth_toggled)
+        row1.addWidget(self.mute_synth_cb)
+        self.drawer_layout.addLayout(row1)
+
+        # Drawer Row 2: Mode, Key, Grand Staff & Options
+        row2 = QHBoxLayout()
+        row2.addWidget(QLabel("Mode:"))
         self.mode_combo = QComboBox()
         self.mode_combo.addItem("Chords & Lead", RecordingMode.CHORDS_AND_LEAD)
         self.mode_combo.addItem("Strict Lead", RecordingMode.STRICT_LEAD)
         self.mode_combo.addItem("Polyphonic", RecordingMode.POLYPHONIC)
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
-        row1.addWidget(self.mode_combo)
-        self.drawer_layout.addLayout(row1)
+        row2.addWidget(self.mode_combo)
 
-        # Drawer Row 2: Key Signature, Grand Staff & Options
-        row2 = QHBoxLayout()
         row2.addWidget(QLabel("Key:"))
         self.key_combo = QComboBox()
         for name, acc in KEY_SIGNATURES:
@@ -162,7 +174,7 @@ class MainWindow(QMainWindow):
         self.auto_key_btn.clicked.connect(self._auto_detect_key)
         row2.addWidget(self.auto_key_btn)
 
-        self.grand_staff_cb = QCheckBox("Grand Staff (Split C4)")
+        self.grand_staff_cb = QCheckBox("Grand Staff (C4)")
         self.grand_staff_cb.toggled.connect(self._on_grand_staff_toggled)
         row2.addWidget(self.grand_staff_cb)
 
@@ -206,9 +218,14 @@ class MainWindow(QMainWindow):
         self.drawer_layout.addLayout(row4)
         self.main_layout.addWidget(self.drawer_widget)
 
-        # Drawer collapsed initially
-        self.drawer_widget.setVisible(False)
+        # Drawer visible by default so user immediately sees device & piano roll
+        self.drawer_widget.setVisible(True)
+        self.transport_bar.drawer_expanded = True
+        self.transport_bar.drawer_btn.setText("▲")
+        self.setMinimumWidth(840)
         self.adjustSize()
+        self.raise_()
+        self.activateWindow()
 
     # --- Drawer Visibility & Sizing ---
     def _set_drawer_visible(self, visible: bool) -> None:
@@ -237,6 +254,35 @@ class MainWindow(QMainWindow):
         port_name = self.midi_port_combo.currentData()
         if port_name:
             self.midi_manager.open_port(port_name)
+
+    # --- Audio Devices ---
+    def _refresh_audio_devices(self) -> None:
+        devices = self.audio_engine.get_output_devices()
+        self.audio_device_combo.blockSignals(True)
+        self.audio_device_combo.clear()
+        
+        current_idx = self.audio_engine.current_device_index
+        selected_combo_idx = 0
+
+        for combo_idx, (dev_idx, dev_name, is_wasapi) in enumerate(devices):
+            self.audio_device_combo.addItem(dev_name, dev_idx)
+            if dev_idx == current_idx:
+                selected_combo_idx = combo_idx
+
+        if devices:
+            self.audio_device_combo.setCurrentIndex(selected_combo_idx)
+
+        self.audio_device_combo.blockSignals(False)
+
+    def _on_audio_device_selected(self, index: int) -> None:
+        dev_idx = self.audio_device_combo.currentData()
+        if dev_idx is not None:
+            self.audio_engine.set_output_device(dev_idx)
+
+    def _on_mute_synth_toggled(self, checked: bool) -> None:
+        self.synth_muted = checked
+        if checked:
+            self.audio_engine.all_notes_off()
 
     # --- Transport & Recording ---
     def _on_record_toggled(self, active: bool) -> None:
@@ -333,11 +379,13 @@ class MainWindow(QMainWindow):
     def _on_raw_midi_event(self, event: RawMidiEvent) -> None:
         # Live monitor sound
         if event.event_type == "note_on":
-            self.audio_engine.note_on(event.pitch, event.velocity)
+            if not self.synth_muted:
+                self.audio_engine.note_on(event.pitch, event.velocity)
             if self.calib_dialog and self.calib_dialog.isVisible():
                 self.calib_dialog.register_tap()
         elif event.event_type == "note_off":
-            self.audio_engine.note_off(event.pitch)
+            if not self.synth_muted:
+                self.audio_engine.note_off(event.pitch)
 
         self.midi_event_received.emit(event)
 

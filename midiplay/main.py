@@ -3,6 +3,13 @@ Entry point for the midiplay desktop application.
 """
 
 import sys
+from pathlib import Path
+
+# Ensure repo root is always in sys.path regardless of how script was invoked
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import signal
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
