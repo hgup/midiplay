@@ -23,7 +23,9 @@ from midiplay.core.clipboard_exporter import ClipboardExporter
 from midiplay.ui.transport_bar import TransportBar
 from midiplay.ui.piano_roll import PianoRollWidget
 from midiplay.ui.calibration_dialog import CalibrationDialog
+from midiplay.ui.styles import LIGHT_THEME_QSS, DARK_THEME_QSS
 from midiplay.utils.global_hotkey import GlobalHotkeyManager
+from midiplay.utils.config import ConfigManager
 
 
 class MainWindow(QMainWindow):
@@ -75,6 +77,7 @@ class MainWindow(QMainWindow):
         self.split_grand_staff: bool = False
         self.musescore_version: str = "4.70"
         self.synth_muted: bool = False
+        self.current_theme: str = ConfigManager.get_theme()
 
         # Calibration dialog reference
         self.calib_dialog: Optional[CalibrationDialog] = None
@@ -123,6 +126,7 @@ class MainWindow(QMainWindow):
         self.transport_bar.grid_changed.connect(self._on_grid_changed)
         self.transport_bar.copy_clicked.connect(self.quantize_and_copy)
         self.transport_bar.drawer_toggled.connect(self._set_drawer_visible)
+        self.transport_bar.theme_toggled.connect(self._toggle_theme)
         self.main_layout.addWidget(self.transport_bar)
 
         # 2. Expandable Drawer
@@ -243,9 +247,25 @@ class MainWindow(QMainWindow):
         self.transport_bar.drawer_expanded = True
         self.transport_bar.drawer_btn.setText("▲")
         self.setMinimumWidth(840)
+        self.set_theme(self.current_theme)
         self.adjustSize()
         self.raise_()
         self.activateWindow()
+
+    def set_theme(self, theme_mode: str) -> None:
+        self.current_theme = theme_mode
+        ConfigManager.set_theme(theme_mode)
+        qss = LIGHT_THEME_QSS if theme_mode == "light" else DARK_THEME_QSS
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(qss)
+        self.transport_bar.set_theme_icon(theme_mode)
+        self.piano_roll.set_theme(theme_mode)
+
+    def _toggle_theme(self) -> None:
+        new_theme = "dark" if self.current_theme == "light" else "light"
+        self.set_theme(new_theme)
 
     # --- Drawer Visibility & Sizing ---
     def _set_drawer_visible(self, visible: bool) -> None:

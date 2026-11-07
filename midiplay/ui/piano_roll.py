@@ -9,6 +9,7 @@ from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont
 from PyQt6.QtCore import Qt, QRectF
 
 from midiplay.core.quantizer import QuantizedChord, PPQ
+from midiplay.ui.styles import PIANO_ROLL_PALETTES
 
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -29,6 +30,11 @@ class PianoRollWidget(QWidget):
         self.chords: List[QuantizedChord] = []
         self.measure_ticks = PPQ * 4  # Default 4/4
         self.playhead_tick: Optional[int] = None
+        self.theme_mode: str = "light"
+
+    def set_theme(self, theme_mode: str) -> None:
+        self.theme_mode = theme_mode
+        self.update()
 
     def set_data(self, chords: List[QuantizedChord], measure_ticks: int) -> None:
         self.chords = chords
@@ -51,19 +57,24 @@ class PianoRollWidget(QWidget):
         w = self.width()
         h = self.height()
 
+        palette = PIANO_ROLL_PALETTES.get(self.theme_mode, PIANO_ROLL_PALETTES["light"])
+
         # Background
-        painter.fillRect(0, 0, w, h, QColor("#141418"))
+        painter.fillRect(0, 0, w, h, QColor(palette["background"]))
+
+        # Outer border
+        painter.setPen(QPen(QColor(palette["border"]), 1))
+        painter.drawRect(0, 0, w - 1, h - 1)
 
         if not self.chords:
             # Empty placeholder text
-            painter.setPen(QColor("#5c5f66"))
+            painter.setPen(QColor(palette["placeholder"]))
             painter.setFont(QFont("Segoe UI", 10))
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Ready. Play controller or press Space to record...")
             return
 
         # Determine tick span
         total_ticks = max(self.measure_ticks, max(c.start_tick + c.duration_ticks for c in self.chords))
-        # Round up to full bar
         num_bars = max(1, (total_ticks + self.measure_ticks - 1) // self.measure_ticks)
         span_ticks = num_bars * self.measure_ticks
 
@@ -80,11 +91,11 @@ class PianoRollWidget(QWidget):
             x = (m_tick / span_ticks) * (w - 30) + 10
 
             # Measure barline
-            painter.setPen(QPen(QColor("#3d424d"), 1.5))
+            painter.setPen(QPen(QColor(palette["barline"]), 1.5))
             painter.drawLine(int(x), 0, int(x), h)
 
             if m < num_bars:
-                painter.setPen(QColor("#6d7582"))
+                painter.setPen(QColor(palette["measure_label"]))
                 painter.drawText(int(x) + 4, 12, f"M{m + 1}")
 
         # Draw Chords / Notes
@@ -99,19 +110,19 @@ class PianoRollWidget(QWidget):
 
                 rect = QRectF(x_start, y, chord_w - 2, note_h - 1)
 
-                # Vibrant cyan/blue gradient fill for notes
-                painter.setBrush(QBrush(QColor("#339af0")))
-                painter.setPen(QPen(QColor("#1c7ed6"), 1))
+                # Modern note fill & border
+                painter.setBrush(QBrush(QColor(palette["note_fill"])))
+                painter.setPen(QPen(QColor(palette["note_border"]), 1))
                 painter.drawRoundedRect(rect, 3, 3)
 
                 # Pitch name label
                 if chord_w > 24 and note_h >= 8:
-                    painter.setPen(QColor("#ffffff"))
+                    painter.setPen(QColor(palette["note_text"]))
                     painter.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
                     painter.drawText(QRectF(x_start + 2, y, chord_w - 4, note_h), Qt.AlignmentFlag.AlignVCenter, pitch_to_name(pitch))
 
         # Playhead line
         if self.playhead_tick is not None:
             px = (self.playhead_tick / span_ticks) * (w - 30) + 10
-            painter.setPen(QPen(QColor("#ff6b6b"), 2))
+            painter.setPen(QPen(QColor(palette["playhead"]), 2))
             painter.drawLine(int(px), 0, int(px), h)

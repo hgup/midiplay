@@ -24,6 +24,7 @@ class TransportBar(QWidget):
     grid_changed = pyqtSignal(QuantizeGrid)
     copy_clicked = pyqtSignal()
     drawer_toggled = pyqtSignal(bool)
+    theme_toggled = pyqtSignal()
     clear_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -111,6 +112,14 @@ class TransportBar(QWidget):
         self.copy_btn.clicked.connect(self.copy_clicked.emit)
         layout.addWidget(self.copy_btn)
 
+        # Theme Switcher Quick Toggle (☀️ / 🌙)
+        self.theme_btn = QPushButton("🌙")
+        self.theme_btn.setObjectName("ThemeBtn")
+        self.theme_btn.setFixedWidth(28)
+        self.theme_btn.setToolTip("Switch Theme (Light / Dark)")
+        self.theme_btn.clicked.connect(self.theme_toggled.emit)
+        layout.addWidget(self.theme_btn)
+
         # Expand Drawer Button
         self.drawer_btn = QPushButton("▼")
         self.drawer_btn.setFixedWidth(28)
@@ -140,6 +149,10 @@ class TransportBar(QWidget):
         self.arm_btn.style().unpolish(self.arm_btn)
         self.arm_btn.style().polish(self.arm_btn)
         self.arm_toggled.emit(armed)
+
+    def set_theme_icon(self, theme_mode: str) -> None:
+        self.theme_btn.setText("🌙" if theme_mode == "light" else "☀️")
+        self.theme_btn.setToolTip(f"Switch to {'Dark' if theme_mode == 'light' else 'Light'} Theme")
 
     def set_status(self, text: str, state_prop: str) -> None:
         self.status_pill.setText(text)

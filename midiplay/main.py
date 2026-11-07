@@ -15,7 +15,8 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 
 from midiplay.ui.main_window import MainWindow
-from midiplay.ui.styles import DARK_THEME_QSS
+from midiplay.ui.styles import LIGHT_THEME_QSS, DARK_THEME_QSS
+from midiplay.utils.config import ConfigManager
 
 
 def main() -> int:
@@ -25,7 +26,9 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("midiplay")
     app.setApplicationDisplayName("midiplay — MuseScore Bridge")
-    app.setStyleSheet(DARK_THEME_QSS)
+    
+    initial_theme = ConfigManager.get_theme()
+    app.setStyleSheet(LIGHT_THEME_QSS if initial_theme == "light" else DARK_THEME_QSS)
 
     window = MainWindow()
     window.show()
