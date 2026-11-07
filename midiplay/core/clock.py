@@ -33,6 +33,7 @@ class Clock:
         self.time_sig_den = time_sig_den
         self.count_in_bars = count_in_bars
         self.latency_offset_ms = 0.0  # -100ms to +100ms
+        self.sync_delay_ms = 45.0     # Delay to match MuseScore audio playback startup lag (0-300ms)
 
         self.on_beat_callback = on_beat_callback
         self.on_state_change = on_state_change
@@ -57,6 +58,12 @@ class Clock:
 
     def set_latency_offset_ms(self, offset_ms: float) -> None:
         self.latency_offset_ms = max(-200.0, min(200.0, offset_ms))
+
+    def set_sync_delay_ms(self, delay_ms: float) -> None:
+        self.sync_delay_ms = max(0.0, min(500.0, delay_ms))
+
+    def set_count_in_bars(self, bars: int) -> None:
+        self.count_in_bars = max(0, bars)
 
     def register_tap(self) -> Optional[float]:
         """Tap tempo calculation. Returns computed BPM if 2+ taps within 2.5s."""
@@ -105,11 +112,17 @@ class Clock:
 
     def _clock_worker(self) -> None:
         """High-resolution timing loop that calculates drift and triggers beats."""
+        # Align with MuseScore audio playback startup latency
+        if self.sync_delay_ms > 0:
+            time.sleep(self.sync_delay_ms / 1000.0)
+
         beat_duration = 60.0 / self.bpm
         total_count_in_beats = self.count_in_bars * self.time_sig_num
         current_beat = 0
 
         next_beat_time = time.perf_counter()
+        if self.state == TransportState.RECORDING:
+            self.record_start_time = next_beat_time + (self.latency_offset_ms / 1000.0)
 
         while not self._stop_event.is_set():
             now = time.perf_counter()

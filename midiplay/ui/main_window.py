@@ -9,7 +9,7 @@ from typing import List, Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QComboBox, QCheckBox, QPushButton,
-    QMessageBox, QSlider
+    QMessageBox, QSlider, QSpinBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 
@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
             bpm=120.0,
             time_sig_num=4,
             time_sig_den=4,
-            count_in_bars=1,
+            count_in_bars=0,  # Default to 0 bars for instant sync on Space
             on_beat_callback=self._on_clock_beat,
             on_state_change=self._on_clock_state_change
         )
@@ -185,6 +185,14 @@ class MainWindow(QMainWindow):
         self.ms_version_combo.currentIndexChanged.connect(self._on_ms_version_changed)
         row2.addWidget(self.ms_version_combo)
 
+        row2.addWidget(QLabel("Count-In:"))
+        self.count_in_combo = QComboBox()
+        self.count_in_combo.addItem("None (Instant)", 0)
+        self.count_in_combo.addItem("1 Bar", 1)
+        self.count_in_combo.addItem("2 Bars", 2)
+        self.count_in_combo.currentIndexChanged.connect(self._on_count_in_changed)
+        row2.addWidget(self.count_in_combo)
+
         self.mute_click_cb = QCheckBox("Mute Click")
         self.mute_click_cb.setToolTip("Mutes local click during MuseScore play-along")
         self.mute_click_cb.toggled.connect(lambda v: self.audio_engine.set_metronome_muted(v))
@@ -200,6 +208,15 @@ class MainWindow(QMainWindow):
         self.calib_btn = QPushButton("Calibrate Latency (4-Tap)")
         self.calib_btn.clicked.connect(self._open_calibration)
         row4.addWidget(self.calib_btn)
+
+        row4.addWidget(QLabel("Sync Delay:"))
+        self.sync_delay_spin = QSpinBox()
+        self.sync_delay_spin.setRange(0, 300)
+        self.sync_delay_spin.setValue(45)
+        self.sync_delay_spin.setSuffix(" ms")
+        self.sync_delay_spin.setToolTip("Delays midiplay's click to match MuseScore audio playback startup latency")
+        self.sync_delay_spin.valueChanged.connect(self._on_sync_delay_changed)
+        row4.addWidget(self.sync_delay_spin)
 
         row4.addWidget(QLabel("Offset:"))
         self.latency_slider = QSlider(Qt.Orientation.Horizontal)
@@ -493,6 +510,14 @@ class MainWindow(QMainWindow):
     def _on_latency_slider_changed(self, val: int) -> None:
         self.clock.set_latency_offset_ms(float(val))
         self.latency_val_label.setText(f"{val:+d} ms")
+
+    def _on_sync_delay_changed(self, val: int) -> None:
+        self.clock.set_sync_delay_ms(float(val))
+
+    def _on_count_in_changed(self, index: int) -> None:
+        bars = self.count_in_combo.currentData()
+        if isinstance(bars, int):
+            self.clock.set_count_in_bars(bars)
 
     def closeEvent(self, event) -> None:
         self.clock.stop()
