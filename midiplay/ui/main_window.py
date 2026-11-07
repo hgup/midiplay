@@ -26,6 +26,8 @@ from midiplay.ui.calibration_dialog import CalibrationDialog
 from midiplay.ui.styles import LIGHT_THEME_QSS, DARK_THEME_QSS
 from midiplay.utils.global_hotkey import GlobalHotkeyManager
 from midiplay.utils.config import ConfigManager
+from midiplay.utils.musescore_window import MuseScoreWindowManager
+from midiplay.utils.bpm_detector import detect_musescore_bpm
 
 
 class MainWindow(QMainWindow):
@@ -43,7 +45,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("midiplay — MuseScore Bridge")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
 
         # Core Engines
@@ -78,6 +83,7 @@ class MainWindow(QMainWindow):
         self.musescore_version: str = "4.70"
         self.synth_muted: bool = False
         self.current_theme: str = ConfigManager.get_theme()
+        self.is_docked: bool = False
 
         # Calibration dialog reference
         self.calib_dialog: Optional[CalibrationDialog] = None
@@ -121,12 +127,12 @@ class MainWindow(QMainWindow):
         self.transport_bar.arm_toggled.connect(self._on_arm_toggled)
         self.transport_bar.preview_clicked.connect(self._play_phrase_preview)
         self.transport_bar.bpm_changed.connect(self._on_bpm_changed)
-        self.transport_bar.tap_tempo_clicked.connect(self._on_tap_tempo)
         self.transport_bar.time_sig_changed.connect(self._on_time_sig_changed)
         self.transport_bar.grid_changed.connect(self._on_grid_changed)
-        self.transport_bar.copy_clicked.connect(self.quantize_and_copy)
+        self.transport_bar.insert_clicked.connect(self.quantize_and_insert)
         self.transport_bar.drawer_toggled.connect(self._set_drawer_visible)
-        self.transport_bar.theme_toggled.connect(self._toggle_theme)
+        self.transport_bar.snap_clicked.connect(self.snap_to_musescore)
+        self.transport_bar.close_clicked.connect(self.close)
         self.main_layout.addWidget(self.transport_bar)
 
         # 2. Expandable Drawer
@@ -157,6 +163,11 @@ class MainWindow(QMainWindow):
         self.mute_synth_cb.setToolTip("Silences local piano synth if your keyboard or MuseScore already plays sound")
         self.mute_synth_cb.toggled.connect(self._on_mute_synth_toggled)
         row1.addWidget(self.mute_synth_cb)
+
+        self.theme_btn = QPushButton("🌙 Dark" if self.current_theme == "light" else "☀️ Light")
+        self.theme_btn.setToolTip("Toggle Light / Dark Theme")
+        self.theme_btn.clicked.connect(self._toggle_theme)
+        row1.addWidget(self.theme_btn)
         self.drawer_layout.addLayout(row1)
 
         # Drawer Row 2: Mode, Key, Grand Staff & Options
@@ -242,15 +253,23 @@ class MainWindow(QMainWindow):
         self.drawer_layout.addLayout(row4)
         self.main_layout.addWidget(self.drawer_widget)
 
-        # Drawer visible by default so user immediately sees device & piano roll
-        self.drawer_widget.setVisible(True)
-        self.transport_bar.drawer_expanded = True
-        self.transport_bar.drawer_btn.setText("▲")
-        self.setMinimumWidth(840)
+        # Drawer collapsed by default for clean MuseScore toolbar integration
+        self.drawer_widget.setVisible(False)
+        self.transport_bar.drawer_expanded = False
+        self.transport_bar.drawer_btn.setText("▼")
+        self.setFixedHeight(34)
         self.set_theme(self.current_theme)
         self.adjustSize()
         self.raise_()
         self.activateWindow()
+
+        # Background sync timer for BPM detection and docked window following
+        self.sync_timer = QTimer(self)
+        self.sync_timer.timeout.connect(self._sync_with_musescore)
+        self.sync_timer.start(2000)
+
+        # Attempt initial snap to MuseScore toolbar after UI initializes
+        QTimer.singleShot(600, self.snap_to_musescore)
 
     def set_theme(self, theme_mode: str) -> None:
         self.current_theme = theme_mode
@@ -260,7 +279,8 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app:
             app.setStyleSheet(qss)
-        self.transport_bar.set_theme_icon(theme_mode)
+        if hasattr(self, 'theme_btn'):
+            self.theme_btn.setText("🌙 Dark" if theme_mode == "light" else "☀️ Light")
         self.piano_roll.set_theme(theme_mode)
 
     def _toggle_theme(self) -> None:
@@ -270,16 +290,20 @@ class MainWindow(QMainWindow):
     # --- Drawer Visibility & Sizing ---
     def _set_drawer_visible(self, visible: bool) -> None:
         self.drawer_widget.setVisible(visible)
+        self.transport_bar.drawer_expanded = visible
+        self.transport_bar.drawer_btn.setText("▲" if visible else "▼")
         from PyQt6.QtWidgets import QApplication
         QApplication.processEvents()
-        
-        target_h = self.minimumSizeHint().height()
-        self.setFixedHeight(target_h)
-        QApplication.processEvents()
-        
-        # Unlock constraints so user/system can freely expand
-        self.setMaximumHeight(16777215)
-        self.setMinimumHeight(0)
+
+        if visible:
+            self.setMinimumWidth(800)
+            self.adjustSize()
+        else:
+            self.setMinimumWidth(0)
+            self.setFixedHeight(34)
+            QApplication.processEvents()
+            self.setMaximumHeight(16777215)
+            self.setMinimumHeight(0)
 
     def _on_arm_toggled(self, armed: bool) -> None:
         self.hotkey_manager.set_space_sync_enabled(armed)
@@ -355,7 +379,7 @@ class MainWindow(QMainWindow):
 
     def _on_recording_stopped(self) -> None:
         if self.recorded_events:
-            self.quantize_and_copy()
+            self.quantize_and_insert()
         else:
             self.transport_bar.set_status("IDLE", "IDLE")
 
@@ -369,8 +393,53 @@ class MainWindow(QMainWindow):
         measure_ticks = int((self.clock.time_sig_num * PPQ * 4) / self.clock.time_sig_den)
         self.piano_roll.set_data(self.current_quantized_chords, measure_ticks)
 
-    def quantize_and_copy(self) -> None:
-        """Quantizes active buffer, serializes to MuseScore XML, and copies to OS clipboard."""
+    def snap_to_musescore(self) -> None:
+        """Positions the toolbar strip flush inside MuseScore 4's empty top toolbar notch."""
+        hwnd = MuseScoreWindowManager.find_musescore_hwnd()
+        if not hwnd:
+            self.transport_bar.set_status("NO MS4", "COUNT_IN")
+            QTimer.singleShot(1500, lambda: self.transport_bar.set_status("IDLE", "IDLE"))
+            return
+
+        pos = MuseScoreWindowManager.calculate_toolbar_notch_pos(
+            hwnd,
+            strip_width=self.width(),
+            strip_height=self.height()
+        )
+        if pos:
+            self.move(pos[0], pos[1])
+            self.is_docked = True
+            self.transport_bar.set_status("DOCKED", "COPIED")
+            QTimer.singleShot(1500, lambda: self.transport_bar.set_status("IDLE", "IDLE"))
+
+    def _sync_with_musescore(self) -> None:
+        """Periodically auto-detects BPM and maintains position if docked to MuseScore."""
+        hwnd = MuseScoreWindowManager.find_musescore_hwnd()
+        if not hwnd:
+            return
+
+        # 1. Attempt to auto-detect BPM from MuseScore playback toolbar
+        try:
+            detected = detect_musescore_bpm(hwnd)
+            if detected and detected != int(self.clock.bpm):
+                self.clock.set_bpm(float(detected))
+                self.transport_bar.set_bpm_display(detected)
+        except Exception:
+            pass
+
+        # 2. If docked, track MuseScore window movements
+        if self.is_docked:
+            pos = MuseScoreWindowManager.calculate_toolbar_notch_pos(
+                hwnd,
+                strip_width=self.width(),
+                strip_height=self.height()
+            )
+            if pos:
+                if abs(self.x() - pos[0]) > 4 or abs(self.y() - pos[1]) > 4:
+                    self.move(pos[0], pos[1])
+
+    def quantize_and_insert(self) -> None:
+        """Quantizes active buffer, formats MuseScore 4 XML, and auto-inserts into selected measure."""
         if not self.recorded_events and not self.current_quantized_chords:
             return
 
@@ -396,9 +465,16 @@ class MainWindow(QMainWindow):
         is_ms4 = not self.musescore_version.startswith("3")
         success = ClipboardExporter.copy_to_clipboard(xml_content, is_musescore_4=is_ms4)
         if success:
-            self.transport_bar.set_status("COPIED TO CLIPBOARD", "COPIED")
-            # Auto-revert status pill to IDLE after 2 seconds
+            # Auto-focus MuseScore and simulate Ctrl+V into active measure
+            inserted = MuseScoreWindowManager.focus_and_paste()
+            if inserted:
+                self.transport_bar.set_status("INSERTED", "COPIED")
+            else:
+                self.transport_bar.set_status("COPIED", "COPIED")
             QTimer.singleShot(2500, lambda: self.transport_bar.set_status("IDLE", "IDLE"))
+
+    def quantize_and_copy(self) -> None:
+        self.quantize_and_insert()
 
     def clear_buffer(self) -> None:
         self.recorded_events.clear()

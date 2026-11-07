@@ -43,8 +43,7 @@ class TestThemeAndConfig(unittest.TestCase):
         for qss in (LIGHT_THEME_QSS, DARK_THEME_QSS):
             self.assertIn("RecordBtn", qss)
             self.assertIn("ArmBtn", qss)
-            self.assertIn("CopyBtn", qss)
-            self.assertIn("ThemeBtn", qss)
+            self.assertIn("InsertBtn", qss)
             self.assertIn("StatusPill", qss)
 
 if __name__ == "__main__":
