@@ -16,6 +16,7 @@ class TransportBar(QWidget):
     """Compact single-line horizontal transport surface."""
 
     record_toggled = pyqtSignal(bool)
+    arm_toggled = pyqtSignal(bool)
     preview_clicked = pyqtSignal()
     bpm_changed = pyqtSignal(float)
     tap_tempo_clicked = pyqtSignal()
@@ -41,18 +42,27 @@ class TransportBar(QWidget):
         self.record_btn.toggled.connect(self.record_toggled.emit)
         layout.addWidget(self.record_btn)
 
+        # ARM button for global spacebar trigger
+        self.arm_btn = QPushButton("ARM")
+        self.arm_btn.setObjectName("ArmBtn")
+        self.arm_btn.setCheckable(True)
+        self.arm_btn.setToolTip("Arm Global Spacebar: When enabled, Space in MuseScore starts/stops recording.\nWhen disabled, Space does not accidentally record while typing.")
+        self.arm_btn.toggled.connect(self._on_arm_toggled)
+        layout.addWidget(self.arm_btn)
+
         # Preview button
         self.preview_btn = QPushButton("▶ Preview")
         self.preview_btn.setToolTip("Play back recorded phrase through built-in synthesizer")
         self.preview_btn.clicked.connect(self.preview_clicked.emit)
         layout.addWidget(self.preview_btn)
 
-        # BPM SpinBox
+        # BPM SpinBox (widened for clear 3-digit visibility)
         layout.addWidget(QLabel("BPM:"))
         self.bpm_box = QSpinBox()
         self.bpm_box.setRange(20, 320)
         self.bpm_box.setValue(120)
-        self.bpm_box.setFixedWidth(55)
+        self.bpm_box.setFixedWidth(78)
+        self.bpm_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.bpm_box.valueChanged.connect(lambda v: self.bpm_changed.emit(float(v)))
         layout.addWidget(self.bpm_box)
 
@@ -122,6 +132,12 @@ class TransportBar(QWidget):
         self.drawer_expanded = not self.drawer_expanded
         self.drawer_btn.setText("▲" if self.drawer_expanded else "▼")
         self.drawer_toggled.emit(self.drawer_expanded)
+
+    def _on_arm_toggled(self, armed: bool) -> None:
+        self.arm_btn.setProperty("armed", "true" if armed else "false")
+        self.arm_btn.style().unpolish(self.arm_btn)
+        self.arm_btn.style().polish(self.arm_btn)
+        self.arm_toggled.emit(armed)
 
     def set_status(self, text: str, state_prop: str) -> None:
         self.status_pill.setText(text)

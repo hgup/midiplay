@@ -1,6 +1,6 @@
 """
-Ultra-low-latency audio engine using sounddevice, WASAPI, and precomputed wavetables.
-Guarantees sub-5ms monitoring latency on Windows.
+Ultra-low-latency audio engine using sounddevice, WASAPI, precomputed wavetables,
+natural acoustic/EP piano envelope decay, and polyphonic soft limiting.
 """
 
 from __future__ import annotations
@@ -16,51 +16,65 @@ except ImportError:
 
 WAVETABLE_SIZE = 4096
 
-# Precompute a warm, pleasant electric-piano-style wavetable
+# Precompute a warm, silky electric/acoustic piano wavetable (harmonic balance)
 _t = np.linspace(0, 2.0 * math.pi, WAVETABLE_SIZE, endpoint=False, dtype=np.float32)
 WAVETABLE = (
-    0.65 * np.sin(_t) +
-    0.22 * np.sin(2.0 * _t) +
-    0.13 * np.sin(3.0 * _t)
+    0.70 * np.sin(_t) +
+    0.20 * np.sin(2.0 * _t) +
+    0.10 * np.sin(3.0 * _t)
 ).astype(np.float32)
 
 
 class Voice:
-    """Precomputed wavetable oscillator with exponential decay release."""
-    __slots__ = ('pitch', 'step', 'phase', 'velocity', 'active', 'released', 'decay')
+    """Precomputed wavetable oscillator with natural acoustic/EP piano envelope."""
+    __slots__ = ('pitch', 'step', 'phase', 'velocity', 'active', 'released',
+                 'sample_rate', 'held_samples', 'release_env', 'peak_amp')
 
     def __init__(self, pitch: int, velocity: int, sample_rate: int):
         freq = 440.0 * (2.0 ** ((pitch - 69) / 12.0))
         self.pitch = pitch
+        self.sample_rate = sample_rate
         self.step = (freq * WAVETABLE_SIZE) / sample_rate
         self.phase = 0.0
-        self.velocity = (velocity / 127.0) * 0.75
+        self.peak_amp = (velocity / 127.0) * 0.35
         self.active = True
         self.released = False
-        self.decay = 1.0
+        self.held_samples = 0
+        self.release_env = 1.0
 
     def render(self, frames: int, out_buffer: np.ndarray) -> None:
         if not self.active:
             return
 
+        # Phase stepping into wavetable
         phases = (self.phase + np.arange(frames, dtype=np.float32) * self.step) % WAVETABLE_SIZE
         indices = phases.astype(np.int32)
-        samples = WAVETABLE[indices] * self.velocity
-
+        raw_wave = WAVETABLE[indices]
         self.phase = (phases[-1] + self.step) % WAVETABLE_SIZE
 
-        if self.released:
-            decay_curve = np.linspace(self.decay, self.decay * 0.02, frames, dtype=np.float32)
-            self.decay *= 0.02
-            if self.decay < 0.001:
-                self.active = False
-            out_buffer += samples * decay_curve
+        # Dynamic Piano Envelope:
+        # Initial attack + smooth piano string decay while held (half-life ~ 1.2 seconds)
+        t_held_start = self.held_samples / self.sample_rate
+        self.held_samples += frames
+        t_held_end = self.held_samples / self.sample_rate
+        t_held = np.linspace(t_held_start, t_held_end, frames, dtype=np.float32)
+
+        # Smooth percussive exponential decay while held
+        held_decay = np.exp(-t_held * 0.95)
+
+        if not self.released:
+            out_buffer += raw_wave * (self.peak_amp * held_decay)
         else:
-            out_buffer += samples
+            # Quick acoustic damping on key release (~80ms release)
+            decay_curve = np.linspace(self.release_env, self.release_env * 0.02, frames, dtype=np.float32)
+            self.release_env *= 0.02
+            if self.release_env < 0.001:
+                self.active = False
+            out_buffer += raw_wave * (self.peak_amp * held_decay * decay_curve)
 
 
 class AudioEngine:
-    """Ultra-low-latency audio output engine leveraging Windows WASAPI."""
+    """Ultra-low-latency audio engine with polyphonic dynamic headroom & soft limiting."""
 
     def __init__(self, sample_rate: int = 48000, buffer_size: int = 128):
         self.sample_rate = sample_rate
@@ -74,8 +88,8 @@ class AudioEngine:
         self._click_buffers: List[np.ndarray] = []
 
         # Pre-synthesize clicks
-        self.downbeat_click = self._generate_click(1760.0, 0.035, 0.9)
-        self.subbeat_click = self._generate_click(880.0, 0.025, 0.6)
+        self.downbeat_click = self._generate_click(1760.0, 0.035, 0.85)
+        self.subbeat_click = self._generate_click(880.0, 0.025, 0.55)
 
         # Active synth voices
         self.active_voices: Dict[int, Voice] = {}
@@ -122,13 +136,12 @@ class AudioEngine:
             default_out = sd.default.device[1]
             default_name = devices[default_out]["name"] if default_out >= 0 else ""
 
-            # 1. Match default name on WASAPI
+            # Match default name on WASAPI
             for i, d in enumerate(devices):
                 if d["hostapi"] == wasapi_api_idx and d["max_output_channels"] > 0:
                     if d["name"] in default_name or default_name in d["name"]:
                         return i
 
-            # 2. Fallback to WASAPI default output device
             wasapi_def = hostapis[wasapi_api_idx]["default_output_device"]
             if wasapi_def >= 0:
                 return wasapi_def
@@ -150,7 +163,7 @@ class AudioEngine:
             dev_info = sd.query_devices(target_device) if target_device is not None else None
             dev_name = dev_info['name'] if dev_info else "System Default"
             lat_ms = (dev_info.get('default_low_output_latency', 0) * 1000.0) if dev_info else 0
-            print(f"[AudioEngine] Starting audio stream on device [{target_device}]: {dev_name} (reported latency: {lat_ms:.1f}ms)")
+            print(f"[AudioEngine] Starting audio stream on device [{target_device}]: {dev_name} (latency: {lat_ms:.1f}ms)")
 
             self.stream = sd.OutputStream(
                 device=target_device,
@@ -165,7 +178,7 @@ class AudioEngine:
             self.is_running = True
             return True
         except Exception as e:
-            print(f"[AudioEngine] Failed to start WASAPI stream ({e}), falling back to default device.")
+            print(f"[AudioEngine] WASAPI start failed ({e}), falling back to default device.")
             try:
                 self.stream = sd.OutputStream(
                     samplerate=self.sample_rate,
@@ -226,30 +239,43 @@ class AudioEngine:
         self.metronome_muted = muted
 
     def _audio_callback(self, outdata: np.ndarray, frames: int, time_info, status) -> None:
-        buffer = np.zeros(frames, dtype=np.float32)
+        synth_buffer = np.zeros(frames, dtype=np.float32)
 
         with self._lock:
-            # 1. Render active synth voices into buffer
+            # 1. Render active voices
+            num_active = len(self.active_voices)
             dead_pitches = []
+
             for pitch, voice in self.active_voices.items():
                 if voice.active:
-                    voice.render(frames, buffer)
+                    voice.render(frames, synth_buffer)
                 else:
                     dead_pitches.append(pitch)
 
             for p in dead_pitches:
                 del self.active_voices[p]
 
-            # 2. Mix active clicks
+            # 2. Dynamic Polyphonic Headroom Scaling:
+            # When playing chords (e.g. 3-6 notes), dynamically scale down by 1/sqrt(N)
+            # to guarantee that polyphony never saturates into mud or distortion.
+            if num_active > 1:
+                scale_factor = 1.0 / math.sqrt(num_active * 0.8)
+                synth_buffer *= scale_factor
+
+            # 3. Smooth Soft Limiter (tanh saturation instead of harsh hard-clipping)
+            # This produces silky acoustic warmth even on heavy fff chords
+            synth_buffer = np.tanh(synth_buffer * 1.1) * 0.92
+
+            # 4. Mix clicks (clicks bypass synth scaling so they remain crisp and audible)
             remaining_clicks = []
             for click in self._click_buffers:
                 if len(click) <= frames:
-                    buffer[:len(click)] += click
+                    synth_buffer[:len(click)] += click
                 else:
-                    buffer += click[:frames]
+                    synth_buffer += click[:frames]
                     remaining_clicks.append(click[frames:])
             self._click_buffers = remaining_clicks
 
-        # Fast limiter to prevent hard clipping
-        np.clip(buffer, -0.98, 0.98, out=buffer)
-        outdata[:, 0] = buffer
+        # Final safety clamp
+        np.clip(synth_buffer, -0.98, 0.98, out=synth_buffer)
+        outdata[:, 0] = synth_buffer

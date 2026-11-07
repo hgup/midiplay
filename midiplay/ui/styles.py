@@ -66,6 +66,25 @@ QPushButton#RecordBtn[recording="true"] {
     border: 2px solid #ffffff;
 }
 
+QPushButton#ArmBtn {
+    background-color: #2b2b36;
+    border: 1px solid #78350f;
+    color: #f59e0b;
+    font-weight: bold;
+    min-width: 52px;
+}
+
+QPushButton#ArmBtn:hover {
+    background-color: #451a03;
+    border-color: #d97706;
+}
+
+QPushButton#ArmBtn[armed="true"] {
+    background-color: #d97706;
+    border: 1px solid #fbbf24;
+    color: #ffffff;
+}
+
 QPushButton#CopyBtn {
     background-color: #2f9e44;
     border: 1px solid #37b24d;

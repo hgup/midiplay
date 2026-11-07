@@ -113,6 +113,7 @@ class MainWindow(QMainWindow):
         # 1. Transport Bar
         self.transport_bar = TransportBar()
         self.transport_bar.record_toggled.connect(self._on_record_toggled)
+        self.transport_bar.arm_toggled.connect(self._on_arm_toggled)
         self.transport_bar.preview_clicked.connect(self._play_phrase_preview)
         self.transport_bar.bpm_changed.connect(self._on_bpm_changed)
         self.transport_bar.tap_tempo_clicked.connect(self._on_tap_tempo)
@@ -230,7 +231,17 @@ class MainWindow(QMainWindow):
     # --- Drawer Visibility & Sizing ---
     def _set_drawer_visible(self, visible: bool) -> None:
         self.drawer_widget.setVisible(visible)
-        self.adjustSize()
+        if not visible:
+            target_h = self.transport_bar.sizeHint().height()
+            self.setMaximumHeight(target_h)
+            self.resize(self.width(), target_h)
+            QTimer.singleShot(60, lambda: self.setMaximumHeight(16777215))
+        else:
+            self.setMaximumHeight(16777215)
+            self.adjustSize()
+
+    def _on_arm_toggled(self, armed: bool) -> None:
+        self.hotkey_manager.set_space_sync_enabled(armed)
 
     # --- MIDI Ports ---
     def _refresh_midi_ports(self) -> None:

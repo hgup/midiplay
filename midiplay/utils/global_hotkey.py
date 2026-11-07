@@ -21,10 +21,13 @@ class GlobalHotkeyManager:
         self.on_copy_shortcut = on_copy_shortcut
         self.on_clear_shortcut = on_clear_shortcut
 
-        self.space_sync_enabled = True
+        self.space_sync_enabled = False  # Disabled until user explicitly presses ARM
         self._listener: Optional[keyboard.Listener] = None
         self._ctrl_pressed = False
         self._shift_pressed = False
+
+    def set_space_sync_enabled(self, enabled: bool) -> None:
+        self.space_sync_enabled = enabled
 
     def start(self) -> None:
         if self._listener is not None:
