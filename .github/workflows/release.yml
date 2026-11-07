@@ -1,0 +1,67 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run Automated Test Suite
+        run: |
+          python -m unittest discover tests
+
+      - name: Build Standalone Windows Executable
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name midiplay --clean midiplay/main.py
+
+      - name: Create or Update 'latest' GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "midiplay (Latest Build)"
+          body: |
+            ## 🚀 midiplay — Latest Windows Build
+            Automatically built from commit [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}).
+
+            ### 📥 Download Assets
+            - **[`midiplay.exe`](https://github.com/${{ github.repository }}/releases/download/latest/midiplay.exe)**: Standalone portable single-file executable (no Python required).
+            - **[`MidiplaySync.qml`](https://github.com/${{ github.repository }}/releases/download/latest/MidiplaySync.qml)**: Companion MuseScore 4 plugin for live tempo and time signature synchronization.
+
+            ### 🎹 Quick Setup
+            1. Download `midiplay.exe` and place it anywhere.
+            2. Download `MidiplaySync.qml` and place it in your MuseScore 4 plugins folder:
+               - `%USERPROFILE%\Documents\MuseScore4\Plugins\MidiplaySync.qml`
+            3. In MuseScore 4, go to **Plugins → Manage Plugins**, enable **Midiplay Companion Sync**, and launch it via **Plugins → Midiplay Companion Sync**.
+            4. Run `midiplay.exe`!
+          draft: false
+          prerelease: false
+          files: |
+            dist/midiplay.exe
+            midiplay/plugins/MidiplaySync.qml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
