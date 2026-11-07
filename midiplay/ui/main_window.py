@@ -231,14 +231,16 @@ class MainWindow(QMainWindow):
     # --- Drawer Visibility & Sizing ---
     def _set_drawer_visible(self, visible: bool) -> None:
         self.drawer_widget.setVisible(visible)
-        if not visible:
-            target_h = self.transport_bar.sizeHint().height()
-            self.setMaximumHeight(target_h)
-            self.resize(self.width(), target_h)
-            QTimer.singleShot(60, lambda: self.setMaximumHeight(16777215))
-        else:
-            self.setMaximumHeight(16777215)
-            self.adjustSize()
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+        
+        target_h = self.minimumSizeHint().height()
+        self.setFixedHeight(target_h)
+        QApplication.processEvents()
+        
+        # Unlock constraints so user/system can freely expand
+        self.setMaximumHeight(16777215)
+        self.setMinimumHeight(0)
 
     def _on_arm_toggled(self, armed: bool) -> None:
         self.hotkey_manager.set_space_sync_enabled(armed)

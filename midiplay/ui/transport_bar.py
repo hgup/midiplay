@@ -29,6 +29,7 @@ class TransportBar(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.drawer_expanded = False
+        self.setFixedHeight(46)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 6, 8, 6)
@@ -94,6 +95,7 @@ class TransportBar(QWidget):
         self.status_pill.setObjectName("StatusPill")
         self.status_pill.setProperty("state", "IDLE")
         self.status_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_pill.setFixedHeight(24)
         layout.addWidget(self.status_pill)
 
         # Auto Copy Checkbox
