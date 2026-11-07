@@ -47,7 +47,7 @@ class TransportBar(QWidget):
         self.arm_btn = QPushButton("ARM")
         self.arm_btn.setObjectName("ArmBtn")
         self.arm_btn.setCheckable(True)
-        self.arm_btn.setToolTip("Arm Global Spacebar: When enabled, Space in MuseScore starts/stops recording.\nWhen disabled, Space does not accidentally record while typing.")
+        self.arm_btn.setToolTip("Arm Global Spacebar (Ctrl+Alt+R): When enabled, Space in MuseScore starts/stops recording.\nWhen disabled, Space does not accidentally record while typing.")
         self.arm_btn.toggled.connect(self._on_arm_toggled)
         layout.addWidget(self.arm_btn)
 

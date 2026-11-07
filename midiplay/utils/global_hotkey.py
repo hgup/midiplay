@@ -25,6 +25,7 @@ class GlobalHotkeyManager:
         self._listener: Optional[keyboard.Listener] = None
         self._ctrl_pressed = False
         self._shift_pressed = False
+        self._alt_pressed = False
 
     def set_space_sync_enabled(self, enabled: bool) -> None:
         self.space_sync_enabled = enabled
@@ -55,20 +56,24 @@ class GlobalHotkeyManager:
             self._ctrl_pressed = True
         elif key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
             self._shift_pressed = True
+        elif key in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr):
+            self._alt_pressed = True
 
-        # Check Ctrl+Shift combinations
+        # Check Ctrl + Alt + R -> Toggle ARM
+        if self._ctrl_pressed and self._alt_pressed:
+            try:
+                if hasattr(key, 'char') and key.char and key.char.lower() == 'r':
+                    if self.on_arm_toggle:
+                        self.on_arm_toggle()
+            except Exception:
+                pass
+
+        # Check Ctrl + Shift + C -> Copy to MuseScore
         if self._ctrl_pressed and self._shift_pressed:
             try:
-                if hasattr(key, 'char') and key.char:
-                    char_lower = key.char.lower()
-                    # Ctrl + Shift + C -> Copy to MuseScore
-                    if char_lower == 'c':
-                        if self.on_copy_shortcut:
-                            self.on_copy_shortcut()
-                    # Ctrl + Shift + R -> Toggle ARM
-                    elif char_lower == 'r':
-                        if self.on_arm_toggle:
-                            self.on_arm_toggle()
+                if hasattr(key, 'char') and key.char and key.char.lower() == 'c':
+                    if self.on_copy_shortcut:
+                        self.on_copy_shortcut()
             except Exception:
                 pass
 
@@ -82,3 +87,5 @@ class GlobalHotkeyManager:
             self._ctrl_pressed = False
         elif key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
             self._shift_pressed = False
+        elif key in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r, keyboard.Key.alt_gr):
+            self._alt_pressed = False

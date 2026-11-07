@@ -231,7 +231,7 @@ class MainWindow(QMainWindow):
         self.latency_val_label.setFixedWidth(45)
         row4.addWidget(self.latency_val_label)
 
-        self.clear_btn = QPushButton("Clear Buffer (Esc)")
+        self.clear_btn = QPushButton("Clear Buffer")
         self.clear_btn.clicked.connect(self.clear_buffer)
         row4.addWidget(self.clear_btn)
 
@@ -335,12 +335,7 @@ class MainWindow(QMainWindow):
 
     def _on_recording_stopped(self) -> None:
         if self.recorded_events:
-            self.transport_bar.set_status("QUANTIZING", "QUANTIZING")
-            self._quantize_buffer()
-            if self.transport_bar.auto_copy_cb.isChecked():
-                self.quantize_and_copy()
-            else:
-                self.transport_bar.set_status("IDLE", "IDLE")
+            self.quantize_and_copy()
         else:
             self.transport_bar.set_status("IDLE", "IDLE")
 
