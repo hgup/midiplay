@@ -1,3 +1,7 @@
+## Disclosure
+
+I used Gemini 3.8 Flash and 6 hours to build this, since its just a utility I built for myself. If you find it useful, hit yourself. Raise an issue if you found something that can improve it. But, I am waiting for Musescore to get this feature soon. Once that rolls out, this will be redundant anyway. Until then, its a good replacement.
+
 # midiplay — MIDI to MuseScore Companion Bridge
 
 [![Latest Release](https://img.shields.io/github/v/release/hgup/midiplay?label=Latest%20Release&color=00c853&logo=github)](https://github.com/hgup/midiplay/releases/tag/latest)
@@ -132,3 +136,4 @@ python build_exe.py
 ## 📄 License
 
 Distributed under the [MIT License](LICENSE).
+
