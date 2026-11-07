@@ -25,3 +25,6 @@ dist/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Temporary dumps
+clipboard_dump/

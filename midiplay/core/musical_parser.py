@@ -17,6 +17,7 @@ class NotationElement:
     pitches: List[int] = field(default_factory=list)
     has_tie_start: bool = False
     has_tie_stop: bool = False
+    prev_tie_ticks: int = 0
 
 
 @dataclass
@@ -135,6 +136,12 @@ class MusicalParser:
             # Next event
             next_chord = events[chord_idx] if chord_idx < len(events) else None
 
+            # If chord starts earlier than current_tick (due to quantization overlap), clamp to current_tick
+            if next_chord is not None and next_chord.start_tick < current_tick:
+                overlap = current_tick - next_chord.start_tick
+                next_chord.start_tick = current_tick
+                next_chord.duration_ticks = max(self.DURATION_TABLE[-1][0], next_chord.duration_ticks - overlap)
+
             if next_chord is not None and next_chord.start_tick == current_tick:
                 # Place chord, clipping or splitting across barline if needed
                 chord_end = current_tick + next_chord.duration_ticks
@@ -149,7 +156,8 @@ class MusicalParser:
                             dots=ddots,
                             pitches=next_chord.pitches,
                             has_tie_start=(i < len(slices) - 1),
-                            has_tie_stop=(i > 0 or (i == 0 and next_chord.is_tie_continuation))
+                            has_tie_stop=(i > 0 or (i == 0 and next_chord.is_tie_continuation)),
+                            prev_tie_ticks=(slices[i - 1][0] if i > 0 else (next_chord.prev_tie_ticks if next_chord.is_tie_continuation else 0))
                         ))
                     current_tick = chord_end
                     chord_idx += 1
@@ -165,13 +173,15 @@ class MusicalParser:
                             dots=ddots,
                             pitches=next_chord.pitches,
                             has_tie_start=True,
-                            has_tie_stop=(i > 0 or (i == 0 and next_chord.is_tie_continuation))
+                            has_tie_stop=(i > 0 or (i == 0 and next_chord.is_tie_continuation)),
+                            prev_tie_ticks=(slices[i - 1][0] if i > 0 else (next_chord.prev_tie_ticks if next_chord.is_tie_continuation else 0))
                         ))
                     # Modify next_chord to continue in next measure
                     remaining_dur = chord_end - m_end
                     events[chord_idx] = QuantizedChord(
                         m_end, remaining_dur, next_chord.pitches,
-                        is_tie_continuation=True
+                        is_tie_continuation=True,
+                        prev_tie_ticks=slices[-1][0]
                     )
                     current_tick = m_end
             elif next_chord is not None and next_chord.start_tick > current_tick:
@@ -200,5 +210,27 @@ class MusicalParser:
                             dots=ddots
                         ))
                 current_tick = m_end
+
+        # Final pass: guarantee every measure has exactly measure_ticks duration
+        dur_map = {
+            "whole": PPQ * 4, "half": PPQ * 2, "quarter": PPQ,
+            "eighth": PPQ // 2, "16th": PPQ // 4, "32nd": PPQ // 8
+        }
+        for m in measures:
+            tot = 0
+            for el in m.elements:
+                b = dur_map.get(el.duration_type, 0)
+                if el.dots == 1:
+                    b = int(b * 1.5)
+                tot += b
+            if tot < self.measure_ticks:
+                diff = self.measure_ticks - tot
+                for dticks, dtype, ddots in self.decompose_duration(diff):
+                    m.elements.append(NotationElement(
+                        is_rest=True,
+                        duration_ticks=dticks,
+                        duration_type=dtype,
+                        dots=ddots
+                    ))
 
         return measures

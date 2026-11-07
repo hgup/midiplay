@@ -55,6 +55,7 @@ class QuantizedChord:
     pitches: List[int]
     velocities: List[int] = field(default_factory=list)
     is_tie_continuation: bool = False
+    prev_tie_ticks: int = 0
 
 
 class Quantizer:
@@ -220,33 +221,42 @@ class Quantizer:
         return cleaned
 
     def _snap_to_grid(self, notes: List[ProcessedNote], bpm: float) -> List[QuantizedChord]:
+        if not notes:
+            return []
+
         grid_ticks = self.grid.ticks
         seconds_per_tick = (60.0 / bpm) / PPQ
 
-        # Group by start_time
-        grouped: Dict[float, List[ProcessedNote]] = {}
+        # Group directly by snapped_tick so simultaneous notes coalesce into single chords
+        grid_buckets: Dict[int, List[ProcessedNote]] = {}
         for n in notes:
-            grouped.setdefault(n.start_time, []).append(n)
+            raw_start_tick = n.start_time / seconds_per_tick
+            snapped_tick = int(round(raw_start_tick / grid_ticks) * grid_ticks)
+            grid_buckets.setdefault(snapped_tick, []).append(n)
 
-        result: List[QuantizedChord] = []
-
-        for start_t, group in grouped.items():
-            raw_start_tick = start_t / seconds_per_tick
-            snapped_start_tick = int(round(raw_start_tick / grid_ticks) * grid_ticks)
-
-            raw_duration_sec = group[0].end_time - group[0].start_time
-            raw_dur_tick = raw_duration_sec / seconds_per_tick
-            snapped_dur_tick = max(grid_ticks, int(round(raw_dur_tick / grid_ticks) * grid_ticks))
-
+        chords: List[QuantizedChord] = []
+        for snapped_start_tick in sorted(grid_buckets.keys()):
+            group = grid_buckets[snapped_start_tick]
             pitches = sorted(list(set(n.pitch for n in group)))
             velocities = [n.velocity for n in group]
 
-            result.append(QuantizedChord(
+            raw_duration_sec = max(n.end_time - n.start_time for n in group)
+            raw_dur_tick = raw_duration_sec / seconds_per_tick
+            snapped_dur_tick = max(grid_ticks, int(round(raw_dur_tick / grid_ticks) * grid_ticks))
+
+            chords.append(QuantizedChord(
                 start_tick=snapped_start_tick,
                 duration_ticks=snapped_dur_tick,
                 pitches=pitches,
                 velocities=velocities
             ))
 
-        result.sort(key=lambda c: c.start_tick)
-        return result
+        # Clamp durations of consecutive chords so they do not overlap into the next chord
+        for i in range(len(chords) - 1):
+            curr_c = chords[i]
+            next_c = chords[i + 1]
+            max_dur = next_c.start_tick - curr_c.start_tick
+            if curr_c.duration_ticks > max_dur and max_dur > 0:
+                curr_c.duration_ticks = max_dur
+
+        return chords

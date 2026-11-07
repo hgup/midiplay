@@ -73,7 +73,7 @@ class MainWindow(QMainWindow):
         # Configuration state
         self.key_accidentals: int = 0
         self.split_grand_staff: bool = False
-        self.musescore_version: str = "4.40"
+        self.musescore_version: str = "4.70"
         self.synth_muted: bool = False
 
         # Calibration dialog reference
@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.grand_staff_cb)
 
         self.ms_version_combo = QComboBox()
-        self.ms_version_combo.addItem("MuseScore 4.x", "4.40")
+        self.ms_version_combo.addItem("MuseScore 4.x", "4.70")
         self.ms_version_combo.addItem("MuseScore 3.x", "3.02")
         self.ms_version_combo.currentIndexChanged.connect(self._on_ms_version_changed)
         row2.addWidget(self.ms_version_combo)
@@ -373,7 +373,8 @@ class MainWindow(QMainWindow):
             time_sig_den=self.clock.time_sig_den
         )
 
-        success = ClipboardExporter.copy_to_clipboard(xml_content)
+        is_ms4 = not self.musescore_version.startswith("3")
+        success = ClipboardExporter.copy_to_clipboard(xml_content, is_musescore_4=is_ms4)
         if success:
             self.transport_bar.set_status("COPIED TO CLIPBOARD", "COPIED")
             # Auto-revert status pill to IDLE after 2 seconds
