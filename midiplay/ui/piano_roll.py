@@ -111,15 +111,18 @@ class PianoRollWidget(QWidget):
                 rect = QRectF(x_start, y, chord_w - 2, note_h - 1)
 
                 # Modern note fill & border
-                painter.setBrush(QBrush(QColor(palette["note_fill"])))
-                painter.setPen(QPen(QColor(palette["note_border"]), 1))
+                fill_color = palette.get("triplet_note_fill", palette["note_fill"]) if chord.is_triplet else palette["note_fill"]
+                border_color = palette.get("triplet_note_border", palette["note_border"]) if chord.is_triplet else palette["note_border"]
+                painter.setBrush(QBrush(QColor(fill_color)))
+                painter.setPen(QPen(QColor(border_color), 1))
                 painter.drawRoundedRect(rect, 3, 3)
 
                 # Pitch name label
-                if chord_w > 24 and note_h >= 8:
+                if chord_w > 20 and note_h >= 8:
                     painter.setPen(QColor(palette["note_text"]))
                     painter.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
-                    painter.drawText(QRectF(x_start + 2, y, chord_w - 4, note_h), Qt.AlignmentFlag.AlignVCenter, pitch_to_name(pitch))
+                    label_text = f"{pitch_to_name(pitch)}³" if chord.is_triplet else pitch_to_name(pitch)
+                    painter.drawText(QRectF(x_start + 2, y, chord_w - 4, note_h), Qt.AlignmentFlag.AlignVCenter, label_text)
 
         # Playhead line
         if self.playhead_tick is not None:

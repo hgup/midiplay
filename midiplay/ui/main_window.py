@@ -168,8 +168,8 @@ class MainWindow(QMainWindow):
         self.drawer_widget = QWidget()
         self.drawer_widget.setObjectName("DrawerWidget")
         self.drawer_layout = QVBoxLayout(self.drawer_widget)
-        self.drawer_layout.setContentsMargins(10, 8, 10, 8)
-        self.drawer_layout.setSpacing(8)
+        self.drawer_layout.setContentsMargins(12, 10, 12, 10)
+        self.drawer_layout.setSpacing(9)
 
         # Drawer Row 1: MIDI Port, Audio Output & Mute Synth
         row1 = QHBoxLayout()
@@ -179,7 +179,8 @@ class MainWindow(QMainWindow):
         row1.addWidget(self.midi_port_combo, 2)
 
         self.refresh_ports_btn = QPushButton("↻")
-        self.refresh_ports_btn.setFixedWidth(26)
+        self.refresh_ports_btn.setFixedSize(24, 24)
+        self.refresh_ports_btn.setToolTip("Rescan connected MIDI devices")
         self.refresh_ports_btn.clicked.connect(self._refresh_midi_ports)
         row1.addWidget(self.refresh_ports_btn)
 
@@ -196,7 +197,7 @@ class MainWindow(QMainWindow):
         self.mute_synth_cb.toggled.connect(self._on_mute_synth_toggled)
         row1.addWidget(self.mute_synth_cb)
 
-        self.theme_btn = QPushButton("Dark" if self.current_theme == "light" else "Light")
+        self.theme_btn = QPushButton("🌙 Dark" if self.current_theme == "light" else "☀️ Light")
         self.theme_btn.setToolTip("Toggle Light / Dark Theme")
         self.theme_btn.clicked.connect(self._toggle_theme)
         row1.addWidget(self.theme_btn)
@@ -238,6 +239,7 @@ class MainWindow(QMainWindow):
         self.grand_staff_cb.toggled.connect(self._on_grand_staff_toggled)
         row2.addWidget(self.grand_staff_cb)
 
+        row2.addWidget(QLabel("Target:"))
         self.ms_version_combo = QComboBox()
         self.ms_version_combo.addItem("MuseScore 4.x", "4.70")
         self.ms_version_combo.addItem("MuseScore 3.x", "3.02")
@@ -297,7 +299,8 @@ class MainWindow(QMainWindow):
         row4.addWidget(self.latency_slider)
 
         self.latency_val_label = QLabel(f"{int(saved_offset):+d} ms")
-        self.latency_val_label.setFixedWidth(45)
+        self.sync_delay_spin.setFixedWidth(75)
+        self.latency_val_label.setFixedWidth(52)
         row4.addWidget(self.latency_val_label)
 
         self.clear_btn = QPushButton("Clear Buffer")
@@ -311,7 +314,7 @@ class MainWindow(QMainWindow):
         self.drawer_widget.setVisible(False)
         self.transport_bar.drawer_expanded = False
         self.transport_bar.drawer_btn.setText("▼")
-        self.setFixedHeight(34)
+        self.setFixedHeight(36)
         self.set_theme(self.current_theme)
         self.adjustSize()
         self.raise_()
@@ -380,7 +383,7 @@ class MainWindow(QMainWindow):
         if app:
             app.setStyleSheet(qss)
         if hasattr(self, 'theme_btn'):
-            self.theme_btn.setText("Dark" if theme_mode == "light" else "Light")
+            self.theme_btn.setText("🌙 Dark" if theme_mode == "light" else "☀️ Light")
         if hasattr(self, 'transport_bar'):
             self.transport_bar.set_theme(theme_mode)
         self.piano_roll.set_theme(theme_mode)
@@ -407,8 +410,8 @@ class MainWindow(QMainWindow):
             self.setGeometry(top_right_x - target_w, top_right_y, target_w, target_h)
         else:
             self.setMinimumSize(0, 0)
-            self.setMaximumSize(16777215, 34)
-            self.setFixedHeight(34)
+            self.setMaximumSize(16777215, 36)
+            self.setFixedHeight(36)
             self.adjustSize()
             compact_w = self.width()
             self.move(top_right_x - compact_w, top_right_y)
@@ -611,7 +614,7 @@ class MainWindow(QMainWindow):
         self.transport_bar.set_status("QUANTIZING", "QUANTIZING")
         self._quantize_buffer()
 
-        parser = MusicalParser(self.clock.time_sig_num, self.clock.time_sig_den)
+        parser = MusicalParser(self.clock.time_sig_num, self.clock.time_sig_den, grid=self.quantizer.grid)
         staff1_m, staff2_m = parser.build_measures(
             chords=self.current_quantized_chords,
             split_grand_staff=self.split_grand_staff,
@@ -725,6 +728,8 @@ class MainWindow(QMainWindow):
 
     def _on_grid_changed(self, grid: QuantizeGrid) -> None:
         self.quantizer.grid = grid
+        if self.recorded_events:
+            self._quantize_buffer()
 
     def _on_mode_changed(self, index: int) -> None:
         mode = self.mode_combo.currentData()
