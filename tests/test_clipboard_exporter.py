@@ -14,11 +14,13 @@ class TestClipboardExporter(unittest.TestCase):
         xml_output = ClipboardExporter.generate_musescore_xml(
             staff1_measures=staff1_m,
             key_accidentals=0,
-            musescore_version="4.40"
+            musescore_version="4.70",
+            time_sig_num=4,
+            time_sig_den=4
         )
 
-        self.assertIn('<museScore version="4.40">', xml_output)
-        self.assertIn('<Staff id="1">', xml_output)
+        self.assertIn('<StaffList version="4.70"', xml_output)
+        self.assertIn('<Staff id="0">', xml_output)
         self.assertIn('<Chord>', xml_output)
         self.assertIn('<pitch>60</pitch>', xml_output)
         self.assertIn('<tpc>14</tpc>', xml_output)
@@ -30,8 +32,8 @@ class TestClipboardExporter(unittest.TestCase):
 
         # Validate that the string is well-formed XML
         root = ET.fromstring(xml_output)
-        self.assertEqual(root.tag, "museScore")
-        self.assertEqual(root.attrib.get("version"), "4.40")
+        self.assertEqual(root.tag, "StaffList")
+        self.assertEqual(root.attrib.get("version"), "4.70")
 
 
 if __name__ == "__main__":

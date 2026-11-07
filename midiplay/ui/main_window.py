@@ -36,6 +36,7 @@ class MainWindow(QMainWindow):
     global_space_triggered = pyqtSignal()
     global_copy_triggered = pyqtSignal()
     global_clear_triggered = pyqtSignal()
+    global_arm_triggered = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -88,12 +89,13 @@ class MainWindow(QMainWindow):
         self.global_space_triggered.connect(self._on_space_toggled)
         self.global_copy_triggered.connect(self.quantize_and_copy)
         self.global_clear_triggered.connect(self.clear_buffer)
+        self.global_arm_triggered.connect(self._toggle_arm_hotkey)
 
         # Start Global Hotkeys
         self.hotkey_manager = GlobalHotkeyManager(
             on_space_toggle=lambda: self.global_space_triggered.emit(),
             on_copy_shortcut=lambda: self.global_copy_triggered.emit(),
-            on_clear_shortcut=lambda: self.global_clear_triggered.emit()
+            on_arm_toggle=lambda: self.global_arm_triggered.emit()
         )
         self.hotkey_manager.start()
 
@@ -328,6 +330,9 @@ class MainWindow(QMainWindow):
         is_rec = self.clock.state in (TransportState.COUNT_IN, TransportState.RECORDING)
         self.transport_bar.record_btn.setChecked(not is_rec)
 
+    def _toggle_arm_hotkey(self) -> None:
+        self.transport_bar.arm_btn.setChecked(not self.transport_bar.arm_btn.isChecked())
+
     def _on_recording_stopped(self) -> None:
         if self.recorded_events:
             self.transport_bar.set_status("QUANTIZING", "QUANTIZING")
@@ -368,7 +373,9 @@ class MainWindow(QMainWindow):
             staff1_measures=staff1_m,
             staff2_measures=staff2_m,
             key_accidentals=self.key_accidentals,
-            musescore_version=self.musescore_version
+            musescore_version=self.musescore_version,
+            time_sig_num=self.clock.time_sig_num,
+            time_sig_den=self.clock.time_sig_den
         )
 
         success = ClipboardExporter.copy_to_clipboard(xml_content)

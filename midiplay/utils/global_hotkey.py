@@ -15,11 +15,11 @@ class GlobalHotkeyManager:
         self,
         on_space_toggle: Optional[Callable[[], None]] = None,
         on_copy_shortcut: Optional[Callable[[], None]] = None,
-        on_clear_shortcut: Optional[Callable[[], None]] = None
+        on_arm_toggle: Optional[Callable[[], None]] = None
     ):
         self.on_space_toggle = on_space_toggle
         self.on_copy_shortcut = on_copy_shortcut
-        self.on_clear_shortcut = on_clear_shortcut
+        self.on_arm_toggle = on_arm_toggle
 
         self.space_sync_enabled = False  # Disabled until user explicitly presses ARM
         self._listener: Optional[keyboard.Listener] = None
@@ -56,19 +56,21 @@ class GlobalHotkeyManager:
         elif key in (keyboard.Key.shift, keyboard.Key.shift_l, keyboard.Key.shift_r):
             self._shift_pressed = True
 
-        # Check Ctrl+Shift+C
+        # Check Ctrl+Shift combinations
         if self._ctrl_pressed and self._shift_pressed:
             try:
-                if hasattr(key, 'char') and key.char and key.char.lower() == 'c':
-                    if self.on_copy_shortcut:
-                        self.on_copy_shortcut()
+                if hasattr(key, 'char') and key.char:
+                    char_lower = key.char.lower()
+                    # Ctrl + Shift + C -> Copy to MuseScore
+                    if char_lower == 'c':
+                        if self.on_copy_shortcut:
+                            self.on_copy_shortcut()
+                    # Ctrl + Shift + R -> Toggle ARM
+                    elif char_lower == 'r':
+                        if self.on_arm_toggle:
+                            self.on_arm_toggle()
             except Exception:
                 pass
-
-        # Check Esc
-        if key == keyboard.Key.esc:
-            if self.on_clear_shortcut:
-                self.on_clear_shortcut()
 
         # Check Space (for Play-along sync with MuseScore)
         if key == keyboard.Key.space:
