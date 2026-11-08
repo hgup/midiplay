@@ -56,6 +56,7 @@ class QuantizedChord:
     velocities: List[int] = field(default_factory=list)
     is_tie_continuation: bool = False
     prev_tie_ticks: int = 0
+    is_triplet: bool = False
 
 
 class Quantizer:
@@ -244,11 +245,13 @@ class Quantizer:
             raw_dur_tick = raw_duration_sec / seconds_per_tick
             snapped_dur_tick = max(grid_ticks, int(round(raw_dur_tick / grid_ticks) * grid_ticks))
 
+            is_triplet_grid = self.grid in (QuantizeGrid.TRIPLET_QUARTER, QuantizeGrid.TRIPLET_EIGHTH, QuantizeGrid.TRIPLET_SIXTEENTH)
             chords.append(QuantizedChord(
                 start_tick=snapped_start_tick,
                 duration_ticks=snapped_dur_tick,
                 pitches=pitches,
-                velocities=velocities
+                velocities=velocities,
+                is_triplet=is_triplet_grid
             ))
 
         # Clamp durations of consecutive chords so they do not overlap into the next chord

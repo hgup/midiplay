@@ -49,7 +49,7 @@ Get the latest pre-compiled build (no Python installation required):
 1. **Select a measure** in MuseScore.
 2. Click the **`IDLE`** status pill on `midiplay` — it instantly reads the exact prevailing tempo (BPM) and time signature of your selected measure!
 3. Press **`Shift + Space`** to record your take.
-4. Hit **`Space`** to stop — your notation is automatically quantized, formatted, and inserted directly into MuseScore!
+4. Hit **`Space`** to stop — your raw performance is preserved in memory! You can insert immediately, or switch the **Grid** (e.g., to `1/8T` for triplets) to re-quantize on the fly before inserting.
 
 ---
 
@@ -61,6 +61,8 @@ Get the latest pre-compiled build (no Python installation required):
   Stays cleanly pinned on top of MuseScore while you work, but automatically recedes when you switch to other applications (e.g., browser, DAW).
 - **Measure-Aware Tempo & Meter Sync:**
   Reads exact meter (e.g. `7/8`, `6/8`, `4/4`) and tempo changes throughout complex scores via the companion MuseScore plugin.
+- **Non-Destructive Post-Record Quantization & Triplet Support (`1/4T`, `1/8T`, `1/16T`):**
+  Raw MIDI events are preserved losslessly in the active buffer. You can play freely, then switch the Grid dropdown on the fly to preview and re-quantize your take before inserting. Triplet notes are automatically flagged, highlighted in vibrant violet with a `³` indicator in the piano roll, and serialized into verified MuseScore 4 `<Tuplet>` XML.
 - **Intelligent "Chords & Lead" Quantization:**
   Notes struck within a 40ms micro-window are unified into a single chord. Sloppy sequential finger overlaps are automatically trimmed into clean single-voice legato transitions — preventing accidental ghost ties or voice fragmentation.
 - **Native MuseScore 4 `<StaffList>` Clipboard Formatting:**

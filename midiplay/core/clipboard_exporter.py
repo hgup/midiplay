@@ -104,6 +104,15 @@ class ClipboardExporter:
 
         for m_data in measures:
             for elem in m_data.elements:
+                if elem.tuplet_start:
+                    tuplet = ET.SubElement(staff, "Tuplet")
+                    ET.SubElement(tuplet, "normalNotes").text = str(elem.tuplet_normal_notes)
+                    ET.SubElement(tuplet, "actualNotes").text = str(elem.tuplet_actual_notes)
+                    ET.SubElement(tuplet, "baseNote").text = elem.tuplet_base_note
+                    num = ET.SubElement(tuplet, "Number")
+                    ET.SubElement(num, "style").text = "tuplet"
+                    ET.SubElement(num, "text").text = elem.tuplet_text
+
                 if elem.is_rest:
                     rest = ET.SubElement(staff, "Rest")
                     if elem.dots > 0:
@@ -140,6 +149,9 @@ class ClipboardExporter:
 
                         ET.SubElement(note, "pitch").text = str(pitch)
                         ET.SubElement(note, "tpc").text = str(TpcCalculator.get_tpc(pitch, key_accidentals))
+
+                if elem.tuplet_stop:
+                    ET.SubElement(staff, "endTuplet")
 
     @classmethod
     def _generate_ms3_xml(

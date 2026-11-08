@@ -71,7 +71,7 @@ class RecordButton(CircleButton):
         if is_rec:
             # Active recording: solid red circle with white stop square
             bg_color = QColor("#ef4444")
-            border_color = QColor("#ffffff" if is_dark else "#dc2626")
+            border_color = QColor("#b91c1c")
             painter.setBrush(QBrush(bg_color))
             painter.setPen(QPen(border_color, 1.2))
             painter.drawEllipse(rect)
@@ -85,12 +85,12 @@ class RecordButton(CircleButton):
         else:
             # Idle / Hover: off-white/dark circle with red center dot
             if self._hovered:
-                bg_color = QColor("#450a0a" if is_dark else "#fee2e2")
+                bg_color = QColor("#3b1219" if is_dark else "#fee2e2")
                 border_color = QColor("#7f1d1d" if is_dark else "#fca5a5")
-                dot_color = QColor("#fca5a5" if is_dark else "#dc2626")
+                dot_color = QColor("#f87171" if is_dark else "#dc2626")
             else:
-                bg_color = QColor("#27272a" if is_dark else "#ffffff")
-                border_color = QColor("#3f3f46" if is_dark else "#cbd5e1")
+                bg_color = QColor("#22252e" if is_dark else "#ffffff")
+                border_color = QColor("#363b48" if is_dark else "#d2d6df")
                 dot_color = QColor("#ef4444")
 
             painter.setBrush(QBrush(bg_color))
@@ -122,16 +122,16 @@ class ArmButton(CircleButton):
 
         if is_armed:
             bg_color = QColor("#d97706" if is_dark else "#f59e0b")
-            border_color = QColor("#fbbf24" if is_dark else "#d97706")
+            border_color = QColor("#f59e0b" if is_dark else "#d97706")
             text_color = QColor("#ffffff")
         elif self._hovered:
-            bg_color = QColor("#451a03" if is_dark else "#fef3c7")
+            bg_color = QColor("#382405" if is_dark else "#fef3c7")
             border_color = QColor("#78350f" if is_dark else "#fde68a")
-            text_color = QColor("#f59e0b" if is_dark else "#d97706")
+            text_color = QColor("#fbbf24" if is_dark else "#d97706")
         else:
-            bg_color = QColor("#27272a" if is_dark else "#ffffff")
-            border_color = QColor("#3f3f46" if is_dark else "#cbd5e1")
-            text_color = QColor("#a0a0b8" if is_dark else "#475569")
+            bg_color = QColor("#22252e" if is_dark else "#ffffff")
+            border_color = QColor("#363b48" if is_dark else "#d2d6df")
+            text_color = QColor("#9ca3b3" if is_dark else "#525866")
 
         painter.setBrush(QBrush(bg_color))
         painter.setPen(QPen(border_color, 1.0 if not is_armed else 1.2))
@@ -159,13 +159,13 @@ class PreviewButton(CircleButton):
         is_dark = self._theme == "dark"
 
         if self._hovered:
-            bg_color = QColor("#3f3f46" if is_dark else "#e2e8f0")
-            border_color = QColor("#52525b" if is_dark else "#94a3b8")
-            icon_color = QColor("#ffffff" if is_dark else "#0f172a")
+            bg_color = QColor("#333846" if is_dark else "#f4f6f9")
+            border_color = QColor("#545b6e" if is_dark else "#b8bec9")
+            icon_color = QColor("#ffffff" if is_dark else "#1c1f26")
         else:
-            bg_color = QColor("#27272a" if is_dark else "#ffffff")
-            border_color = QColor("#3f3f46" if is_dark else "#cbd5e1")
-            icon_color = QColor("#cfd2d6" if is_dark else "#334155")
+            bg_color = QColor("#22252e" if is_dark else "#ffffff")
+            border_color = QColor("#363b48" if is_dark else "#d2d6df")
+            icon_color = QColor("#9ca3b3" if is_dark else "#525866")
 
         painter.setBrush(QBrush(bg_color))
         painter.setPen(QPen(border_color, 1.0))
@@ -193,7 +193,7 @@ class BpmBadge(QLineEdit):
         self._val = val
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setFixedWidth(64)
-        self.setFixedHeight(22)
+        self.setFixedHeight(26)
         self.setToolTip("Tempo (BPM) — Auto-detected from MuseScore; scroll wheel or type to edit")
         self.returnPressed.connect(self._on_edit)
 
@@ -282,15 +282,16 @@ class TransportBar(QWidget):
         super().__init__(parent)
         self.setObjectName("ToolbarStrip")
         self.drawer_expanded = False
-        self.setFixedHeight(34)
+        self.setFixedHeight(36)
         self._drag_start_pos: QPoint | None = None
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, 2, 6, 2)
-        layout.setSpacing(4)
+        layout.setContentsMargins(6, 5, 6, 5)
+        layout.setSpacing(5)
 
         # 1. Drag Handle
         self.drag_handle = DragHandle(self)
+        self.drag_handle.setFixedHeight(26)
         layout.addWidget(self.drag_handle)
 
         # 2. Record: circular icon button
@@ -313,63 +314,61 @@ class TransportBar(QWidget):
 
         # 5. BPM Tempo Badge: clean borderless badge
         self.bpm_box = BpmBadge(120, self)
+        self.bpm_box.setFixedSize(64, 26)
         self.bpm_box.valueChanged.connect(lambda v: self.bpm_changed.emit(float(v)))
         layout.addWidget(self.bpm_box)
 
-        # 6. Meter Combo: borderless
+        # 6. Meter Combo: clean toolbar badge
         self.meter_combo = QComboBox()
         self.meter_combo.setObjectName("MeterCombo")
         self.meter_combo.addItems(["4/4", "3/4", "2/4", "6/8", "5/4", "7/8"])
-        self.meter_combo.setFixedWidth(46)
-        self.meter_combo.setFixedHeight(22)
+        self.meter_combo.setFixedSize(52, 26)
         self.meter_combo.setToolTip("Time Signature")
         self.meter_combo.currentTextChanged.connect(self._on_meter_change)
         layout.addWidget(self.meter_combo)
 
-        # 7. Grid Combo: borderless
+        # 7. Grid Combo: clean toolbar badge
         self.grid_combo = QComboBox()
         self.grid_combo.setObjectName("GridCombo")
         for g in QuantizeGrid:
             self.grid_combo.addItem(g.value, g)
         self.grid_combo.setCurrentText("1/16")
-        self.grid_combo.setFixedWidth(50)
-        self.grid_combo.setFixedHeight(22)
+        self.grid_combo.setFixedSize(56, 26)
         self.grid_combo.setToolTip("Quantize Grid")
         self.grid_combo.currentIndexChanged.connect(self._on_grid_change)
         layout.addWidget(self.grid_combo)
 
-        # 8. Insert Action Button (compact 20px height)
+        # 8. Insert Action Button (exact 26px height)
         self.insert_btn = QPushButton("Insert")
         self.insert_btn.setObjectName("InsertBtn")
-        self.insert_btn.setFixedHeight(20)
+        self.insert_btn.setFixedHeight(26)
         self.insert_btn.setToolTip("Insert notes into currently selected MuseScore measure")
         self.insert_btn.clicked.connect(self.insert_clicked.emit)
         layout.addWidget(self.insert_btn)
 
-        # 9. Status Micro-Pill (Fixed width 64px, 20px height, muted idle, clickable to sync)
+        # 9. Status Micro-Pill (Fixed width 68px, exact 26px height, clickable to sync)
         self.status_pill = QLabel("IDLE")
         self.status_pill.setObjectName("StatusPill")
         self.status_pill.setProperty("state", "IDLE")
         self.status_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_pill.setFixedWidth(64)
-        self.status_pill.setFixedHeight(20)
+        self.status_pill.setFixedSize(68, 26)
         self.status_pill.setCursor(Qt.CursorShape.PointingHandCursor)
         self.status_pill.setToolTip("Status / Click to Sync with MuseScore")
         self.status_pill.mousePressEvent = lambda e: self.status_clicked.emit()
         layout.addWidget(self.status_pill)
 
-        # 10. Expand Drawer Button (borderless 20x20)
+        # 10. Expand Drawer Button (borderless 26x26)
         self.drawer_btn = QPushButton("▼")
         self.drawer_btn.setObjectName("DrawerBtn")
-        self.drawer_btn.setFixedSize(20, 20)
+        self.drawer_btn.setFixedSize(26, 26)
         self.drawer_btn.setToolTip("Settings, Theme Switcher & Piano Roll")
         self.drawer_btn.clicked.connect(self._toggle_drawer)
         layout.addWidget(self.drawer_btn)
 
-        # 11. Minimalist Close Button (borderless 20x20)
+        # 11. Minimalist Close Button (borderless 26x26)
         self.close_btn = QPushButton("✕")
         self.close_btn.setObjectName("WindowCloseBtn")
-        self.close_btn.setFixedSize(20, 20)
+        self.close_btn.setFixedSize(26, 26)
         self.close_btn.setToolTip("Close midiplay")
         self.close_btn.clicked.connect(self.close_clicked.emit)
         layout.addWidget(self.close_btn)

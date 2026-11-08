@@ -168,27 +168,36 @@ class MainWindow(QMainWindow):
         self.drawer_widget = QWidget()
         self.drawer_widget.setObjectName("DrawerWidget")
         self.drawer_layout = QVBoxLayout(self.drawer_widget)
-        self.drawer_layout.setContentsMargins(10, 8, 10, 8)
-        self.drawer_layout.setSpacing(8)
+        self.drawer_layout.setContentsMargins(12, 10, 12, 10)
+        self.drawer_layout.setSpacing(9)
 
         # Drawer Row 1: MIDI Port, Audio Output & Mute Synth
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("MIDI:"))
+        row1.setSpacing(6)
+        lbl_midi = QLabel("MIDI:")
+        lbl_midi.setFixedHeight(26)
+        row1.addWidget(lbl_midi)
         self.midi_port_combo = QComboBox()
+        self.midi_port_combo.setFixedHeight(26)
         self.midi_port_combo.currentIndexChanged.connect(self._on_port_selected)
         row1.addWidget(self.midi_port_combo, 2)
 
         self.refresh_ports_btn = QPushButton("↻")
-        self.refresh_ports_btn.setFixedWidth(26)
+        self.refresh_ports_btn.setFixedSize(26, 26)
+        self.refresh_ports_btn.setToolTip("Rescan connected MIDI devices")
         self.refresh_ports_btn.clicked.connect(self._refresh_midi_ports)
         row1.addWidget(self.refresh_ports_btn)
 
-        row1.addWidget(QLabel("Audio:"))
+        lbl_audio = QLabel("Audio:")
+        lbl_audio.setFixedHeight(26)
+        row1.addWidget(lbl_audio)
         self.audio_device_combo = QComboBox()
+        self.audio_device_combo.setFixedHeight(26)
         self.audio_device_combo.currentIndexChanged.connect(self._on_audio_device_selected)
         row1.addWidget(self.audio_device_combo, 3)
 
         self.mute_synth_cb = QCheckBox("Mute Synth")
+        self.mute_synth_cb.setFixedHeight(26)
         saved_mute_synth = ConfigManager.get_mute_synth()
         self.mute_synth_cb.setChecked(saved_mute_synth)
         self.synth_muted = saved_mute_synth
@@ -196,7 +205,8 @@ class MainWindow(QMainWindow):
         self.mute_synth_cb.toggled.connect(self._on_mute_synth_toggled)
         row1.addWidget(self.mute_synth_cb)
 
-        self.theme_btn = QPushButton("Dark" if self.current_theme == "light" else "Light")
+        self.theme_btn = QPushButton("🌙 Dark" if self.current_theme == "light" else "☀️ Light")
+        self.theme_btn.setFixedHeight(26)
         self.theme_btn.setToolTip("Toggle Light / Dark Theme")
         self.theme_btn.clicked.connect(self._toggle_theme)
         row1.addWidget(self.theme_btn)
@@ -204,8 +214,12 @@ class MainWindow(QMainWindow):
 
         # Drawer Row 2: Mode, Key, Grand Staff & Options
         row2 = QHBoxLayout()
-        row2.addWidget(QLabel("Mode:"))
+        row2.setSpacing(6)
+        lbl_mode = QLabel("Mode:")
+        lbl_mode.setFixedHeight(26)
+        row2.addWidget(lbl_mode)
         self.mode_combo = QComboBox()
+        self.mode_combo.setFixedHeight(26)
         self.mode_combo.addItem("Chords & Lead", RecordingMode.CHORDS_AND_LEAD)
         self.mode_combo.addItem("Strict Lead", RecordingMode.STRICT_LEAD)
         self.mode_combo.addItem("Polyphonic", RecordingMode.POLYPHONIC)
@@ -219,33 +233,45 @@ class MainWindow(QMainWindow):
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         row2.addWidget(self.mode_combo)
 
-        row2.addWidget(QLabel("Key:"))
+        lbl_key = QLabel("Key:")
+        lbl_key.setFixedHeight(26)
+        row2.addWidget(lbl_key)
         self.key_combo = QComboBox()
+        self.key_combo.setFixedHeight(26)
         for name, acc in KEY_SIGNATURES:
             self.key_combo.addItem(name, acc)
         self.key_combo.currentIndexChanged.connect(self._on_key_changed)
         row2.addWidget(self.key_combo)
 
         self.auto_key_btn = QPushButton("Auto-Key")
+        self.auto_key_btn.setFixedHeight(26)
         self.auto_key_btn.setToolTip("Detect key signature from recorded notes")
         self.auto_key_btn.clicked.connect(self._auto_detect_key)
         row2.addWidget(self.auto_key_btn)
 
         self.grand_staff_cb = QCheckBox("Grand Staff (C4)")
+        self.grand_staff_cb.setFixedHeight(26)
         saved_grand_staff = ConfigManager.get_split_grand_staff()
         self.grand_staff_cb.setChecked(saved_grand_staff)
         self.split_grand_staff = saved_grand_staff
         self.grand_staff_cb.toggled.connect(self._on_grand_staff_toggled)
         row2.addWidget(self.grand_staff_cb)
 
+        lbl_target = QLabel("Target:")
+        lbl_target.setFixedHeight(26)
+        row2.addWidget(lbl_target)
         self.ms_version_combo = QComboBox()
+        self.ms_version_combo.setFixedHeight(26)
         self.ms_version_combo.addItem("MuseScore 4.x", "4.70")
         self.ms_version_combo.addItem("MuseScore 3.x", "3.02")
         self.ms_version_combo.currentIndexChanged.connect(self._on_ms_version_changed)
         row2.addWidget(self.ms_version_combo)
 
-        row2.addWidget(QLabel("Count-In:"))
+        lbl_count_in = QLabel("Count-In:")
+        lbl_count_in.setFixedHeight(26)
+        row2.addWidget(lbl_count_in)
         self.count_in_combo = QComboBox()
+        self.count_in_combo.setFixedHeight(26)
         self.count_in_combo.addItem("None (Instant)", 0)
         self.count_in_combo.addItem("1 Bar", 1)
         self.count_in_combo.addItem("2 Bars", 2)
@@ -258,6 +284,7 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.count_in_combo)
 
         self.mute_click_cb = QCheckBox("Mute Click")
+        self.mute_click_cb.setFixedHeight(26)
         saved_mute_click = ConfigManager.get_mute_click()
         self.mute_click_cb.setChecked(saved_mute_click)
         self.audio_engine.set_metronome_muted(saved_mute_click)
@@ -272,12 +299,17 @@ class MainWindow(QMainWindow):
 
         # Drawer Row 4: Calibration & Quick Actions
         row4 = QHBoxLayout()
+        row4.setSpacing(6)
         self.calib_btn = QPushButton("Calibrate Latency (4-Tap)")
+        self.calib_btn.setFixedHeight(26)
         self.calib_btn.clicked.connect(self._open_calibration)
         row4.addWidget(self.calib_btn)
 
-        row4.addWidget(QLabel("Sync Delay:"))
+        lbl_sync = QLabel("Sync Delay:")
+        lbl_sync.setFixedHeight(26)
+        row4.addWidget(lbl_sync)
         self.sync_delay_spin = QSpinBox()
+        self.sync_delay_spin.setFixedHeight(26)
         self.sync_delay_spin.setRange(0, 300)
         saved_sync_delay = ConfigManager.get_sync_delay_ms()
         self.sync_delay_spin.setValue(int(saved_sync_delay))
@@ -285,10 +317,14 @@ class MainWindow(QMainWindow):
         self.sync_delay_spin.setSuffix(" ms")
         self.sync_delay_spin.setToolTip("Delays midiplay's click to match MuseScore audio playback startup latency")
         self.sync_delay_spin.valueChanged.connect(self._on_sync_delay_changed)
+        self.sync_delay_spin.setFixedWidth(75)
         row4.addWidget(self.sync_delay_spin)
 
-        row4.addWidget(QLabel("Offset:"))
+        lbl_offset = QLabel("Offset:")
+        lbl_offset.setFixedHeight(26)
+        row4.addWidget(lbl_offset)
         self.latency_slider = QSlider(Qt.Orientation.Horizontal)
+        self.latency_slider.setFixedHeight(26)
         self.latency_slider.setRange(-100, 100)
         saved_offset = ConfigManager.get_latency_offset_ms()
         self.latency_slider.setValue(int(saved_offset))
@@ -297,10 +333,12 @@ class MainWindow(QMainWindow):
         row4.addWidget(self.latency_slider)
 
         self.latency_val_label = QLabel(f"{int(saved_offset):+d} ms")
-        self.latency_val_label.setFixedWidth(45)
+        self.latency_val_label.setFixedHeight(26)
+        self.latency_val_label.setFixedWidth(52)
         row4.addWidget(self.latency_val_label)
 
         self.clear_btn = QPushButton("Clear Buffer")
+        self.clear_btn.setFixedHeight(26)
         self.clear_btn.clicked.connect(self.clear_buffer)
         row4.addWidget(self.clear_btn)
 
@@ -311,7 +349,7 @@ class MainWindow(QMainWindow):
         self.drawer_widget.setVisible(False)
         self.transport_bar.drawer_expanded = False
         self.transport_bar.drawer_btn.setText("▼")
-        self.setFixedHeight(34)
+        self.setFixedHeight(36)
         self.set_theme(self.current_theme)
         self.adjustSize()
         self.raise_()
@@ -380,7 +418,7 @@ class MainWindow(QMainWindow):
         if app:
             app.setStyleSheet(qss)
         if hasattr(self, 'theme_btn'):
-            self.theme_btn.setText("Dark" if theme_mode == "light" else "Light")
+            self.theme_btn.setText("🌙 Dark" if theme_mode == "light" else "☀️ Light")
         if hasattr(self, 'transport_bar'):
             self.transport_bar.set_theme(theme_mode)
         self.piano_roll.set_theme(theme_mode)
@@ -407,8 +445,8 @@ class MainWindow(QMainWindow):
             self.setGeometry(top_right_x - target_w, top_right_y, target_w, target_h)
         else:
             self.setMinimumSize(0, 0)
-            self.setMaximumSize(16777215, 34)
-            self.setFixedHeight(34)
+            self.setMaximumSize(16777215, 36)
+            self.setFixedHeight(36)
             self.adjustSize()
             compact_w = self.width()
             self.move(top_right_x - compact_w, top_right_y)
@@ -611,7 +649,7 @@ class MainWindow(QMainWindow):
         self.transport_bar.set_status("QUANTIZING", "QUANTIZING")
         self._quantize_buffer()
 
-        parser = MusicalParser(self.clock.time_sig_num, self.clock.time_sig_den)
+        parser = MusicalParser(self.clock.time_sig_num, self.clock.time_sig_den, grid=self.quantizer.grid)
         staff1_m, staff2_m = parser.build_measures(
             chords=self.current_quantized_chords,
             split_grand_staff=self.split_grand_staff,
@@ -725,6 +763,8 @@ class MainWindow(QMainWindow):
 
     def _on_grid_changed(self, grid: QuantizeGrid) -> None:
         self.quantizer.grid = grid
+        if self.recorded_events:
+            self._quantize_buffer()
 
     def _on_mode_changed(self, index: int) -> None:
         mode = self.mode_combo.currentData()

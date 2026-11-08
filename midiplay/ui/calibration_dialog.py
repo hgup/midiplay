@@ -86,12 +86,6 @@ class CalibrationDialog(QDialog):
 
         self.setWindowTitle("Latency Calibration Wizard")
         self.setFixedSize(380, 260)
-        self.setStyleSheet("""
-            QDialog { background-color: #1e1e24; color: #e0e0e0; }
-            QLabel { color: #cfd2d6; font-size: 11px; }
-            QPushButton { background-color: #2b2b36; color: #ffffff; border: 1px solid #3d3d4d; border-radius: 4px; padding: 6px; }
-            QPushButton:hover { background-color: #3b5bdb; }
-        """)
 
         layout = QVBoxLayout(self)
 
@@ -103,7 +97,7 @@ class CalibrationDialog(QDialog):
         layout.addWidget(self.info_label)
 
         self.status_label = QLabel("Status: Ready to calibrate.")
-        self.status_label.setStyleSheet("color: #74c0fc; font-weight: bold; margin-top: 10px;")
+        self.status_label.setObjectName("CalibrationStatus")
         layout.addWidget(self.status_label)
 
         self.progress_bar = QProgressBar()

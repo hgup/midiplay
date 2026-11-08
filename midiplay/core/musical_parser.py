@@ -5,7 +5,7 @@ Musical Measure Parsing, Rest Gap Decomposition, and Barline Splitting.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
-from midiplay.core.quantizer import QuantizedChord, PPQ
+from midiplay.core.quantizer import QuantizedChord, PPQ, QuantizeGrid
 
 
 @dataclass
@@ -18,6 +18,12 @@ class NotationElement:
     has_tie_start: bool = False
     has_tie_stop: bool = False
     prev_tie_ticks: int = 0
+    tuplet_start: bool = False
+    tuplet_stop: bool = False
+    tuplet_actual_notes: int = 3
+    tuplet_normal_notes: int = 2
+    tuplet_base_note: str = "eighth"
+    tuplet_text: str = "3" 
 
 
 @dataclass
@@ -41,11 +47,12 @@ class MusicalParser:
         (PPQ // 8, "32nd", 0),
     ]
 
-    def __init__(self, time_sig_num: int = 4, time_sig_den: int = 4):
+    def __init__(self, time_sig_num: int = 4, time_sig_den: int = 4, grid: Optional[QuantizeGrid] = None):
         self.time_sig_num = time_sig_num
         self.time_sig_den = time_sig_den
         # Measure duration in ticks: (num * 480 * 4) / den
         self.measure_ticks = int((time_sig_num * PPQ * 4) / time_sig_den)
+        self.grid = grid
 
     @classmethod
     def decompose_duration(cls, total_ticks: int) -> List[Tuple[int, str, int]]:
@@ -78,12 +85,14 @@ class MusicalParser:
         Builds measure structures for Staff 1, and optionally Staff 2 (Bass).
         """
         if not chords:
-            # Emit 1 empty measure with a whole rest
             empty_m = MeasureData(0, [NotationElement(is_rest=True, duration_ticks=self.measure_ticks, duration_type="whole")])
             return [empty_m], ([empty_m] if split_grand_staff else None)
 
+        is_triplet_grid = self.grid in (QuantizeGrid.TRIPLET_QUARTER, QuantizeGrid.TRIPLET_EIGHTH, QuantizeGrid.TRIPLET_SIXTEENTH)
+        builder = self._build_triplet_staff if is_triplet_grid else self._build_single_staff
+
         if not split_grand_staff:
-            staff1_measures = self._build_single_staff(chords)
+            staff1_measures = builder(chords)
             return staff1_measures, None
         else:
             staff1_chords: List[QuantizedChord] = []
@@ -94,12 +103,12 @@ class MusicalParser:
                 bass_p = [p for p in c.pitches if p < split_pitch]
 
                 if treble_p:
-                    staff1_chords.append(QuantizedChord(c.start_tick, c.duration_ticks, treble_p))
+                    staff1_chords.append(QuantizedChord(c.start_tick, c.duration_ticks, treble_p, is_triplet=c.is_triplet))
                 if bass_p:
-                    staff2_chords.append(QuantizedChord(c.start_tick, c.duration_ticks, bass_p))
+                    staff2_chords.append(QuantizedChord(c.start_tick, c.duration_ticks, bass_p, is_triplet=c.is_triplet))
 
-            staff1_measures = self._build_single_staff(staff1_chords)
-            staff2_measures = self._build_single_staff(staff2_chords)
+            staff1_measures = builder(staff1_chords)
+            staff2_measures = builder(staff2_chords)
 
             # Ensure both staves have identical measure counts
             max_m = max(len(staff1_measures), len(staff2_measures))
@@ -111,6 +120,206 @@ class MusicalParser:
                 staff2_measures.append(MeasureData(idx, [NotationElement(True, self.measure_ticks, "whole")]))
 
             return staff1_measures, staff2_measures
+
+    def _build_triplet_staff(self, chords: List[QuantizedChord]) -> List[MeasureData]:
+        if not chords:
+            return [MeasureData(0, [NotationElement(is_rest=True, duration_ticks=self.measure_ticks, duration_type="whole")])]
+
+        if self.grid == QuantizeGrid.TRIPLET_SIXTEENTH:
+            sub_ticks = 80
+            span_ticks = 240
+            base_dtype = "16th"
+            double_dtype = "eighth"
+        elif self.grid == QuantizeGrid.TRIPLET_QUARTER:
+            sub_ticks = 320
+            span_ticks = 960
+            base_dtype = "quarter"
+            double_dtype = "half"
+        else:  # TRIPLET_EIGHTH
+            sub_ticks = 160
+            span_ticks = 480
+            base_dtype = "eighth"
+            double_dtype = "quarter"
+
+        last_chord = chords[-1]
+        total_span_ticks = last_chord.start_tick + last_chord.duration_ticks
+        num_measures = max(1, (total_span_ticks + self.measure_ticks - 1) // self.measure_ticks)
+
+        measures: List[MeasureData] = [MeasureData(i) for i in range(num_measures)]
+        chord_map = {c.start_tick: c for c in chords}
+
+        tuplet_kwargs = {
+            "tuplet_actual_notes": 3,
+            "tuplet_normal_notes": 2,
+            "tuplet_base_note": base_dtype,
+            "tuplet_text": "3"
+        }
+
+        for m_idx in range(num_measures):
+            m_start = m_idx * self.measure_ticks
+            m_end = m_start + self.measure_ticks
+
+            current_tick = m_start
+            while current_tick < m_end:
+                span_start = current_tick
+                span_end = min(span_start + span_ticks, m_end)
+                span_len = span_end - span_start
+
+                # Chords falling in this span
+                span_chords = [c for c in chords if span_start <= c.start_tick < span_end]
+
+                if not span_chords:
+                    # Empty span -> standard rest decomposition
+                    for dticks, dtype, ddots in self.decompose_duration(span_len):
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=True,
+                            duration_ticks=dticks,
+                            duration_type=dtype,
+                            dots=ddots
+                        ))
+                    current_tick = span_end
+                    continue
+
+                # Check if it's a single straight note that fills the span or more
+                if len(span_chords) == 1 and span_chords[0].start_tick == span_start and span_chords[0].duration_ticks >= span_ticks:
+                    chord = span_chords[0]
+                    straight_dur = min(chord.duration_ticks, m_end - span_start)
+                    straight_dur = (straight_dur // span_ticks) * span_ticks
+                    if straight_dur <= 0:
+                        straight_dur = span_ticks
+
+                    for dticks, dtype, ddots in self.decompose_duration(straight_dur):
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=False,
+                            duration_ticks=dticks,
+                            duration_type=dtype,
+                            dots=ddots,
+                            pitches=chord.pitches
+                        ))
+                    current_tick = span_start + straight_dur
+                    continue
+
+                # Tuplet with 3 slots
+                c0 = chord_map.get(span_start)
+                c1 = chord_map.get(span_start + sub_ticks)
+                c2 = chord_map.get(span_start + 2 * sub_ticks)
+
+                if c0 and c0.duration_ticks >= 2 * sub_ticks:
+                    # Slot 0 + 1 combined (double_dtype)
+                    measures[m_idx].elements.append(NotationElement(
+                        is_rest=False,
+                        duration_ticks=2 * sub_ticks,
+                        duration_type=double_dtype,
+                        pitches=c0.pitches,
+                        tuplet_start=True,
+                        **tuplet_kwargs
+                    ))
+                    # Slot 2
+                    if c2:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=False,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            pitches=c2.pitches,
+                            tuplet_stop=True,
+                            **tuplet_kwargs
+                        ))
+                    else:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=True,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            tuplet_stop=True,
+                            **tuplet_kwargs
+                        ))
+                elif c1 and c1.duration_ticks >= 2 * sub_ticks:
+                    # Slot 0 (single)
+                    if c0:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=False,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            pitches=c0.pitches,
+                            tuplet_start=True,
+                            **tuplet_kwargs
+                        ))
+                    else:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=True,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            tuplet_start=True,
+                            **tuplet_kwargs
+                        ))
+                    # Slot 1 + 2 combined
+                    measures[m_idx].elements.append(NotationElement(
+                        is_rest=False,
+                        duration_ticks=2 * sub_ticks,
+                        duration_type=double_dtype,
+                        pitches=c1.pitches,
+                        tuplet_stop=True,
+                        **tuplet_kwargs
+                    ))
+                else:
+                    # 3 separate slots
+                    # Slot 0
+                    if c0:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=False,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            pitches=c0.pitches,
+                            tuplet_start=True,
+                            **tuplet_kwargs
+                        ))
+                    else:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=True,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            tuplet_start=True,
+                            **tuplet_kwargs
+                        ))
+
+                    # Slot 1
+                    if c1:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=False,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            pitches=c1.pitches,
+                            **tuplet_kwargs
+                        ))
+                    else:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=True,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            **tuplet_kwargs
+                        ))
+
+                    # Slot 2
+                    if c2:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=False,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            pitches=c2.pitches,
+                            tuplet_stop=True,
+                            **tuplet_kwargs
+                        ))
+                    else:
+                        measures[m_idx].elements.append(NotationElement(
+                            is_rest=True,
+                            duration_ticks=sub_ticks,
+                            duration_type=base_dtype,
+                            tuplet_stop=True,
+                            **tuplet_kwargs
+                        ))
+
+                current_tick = span_end
+
+        return measures
 
     def _build_single_staff(self, chords: List[QuantizedChord]) -> List[MeasureData]:
         if not chords:
