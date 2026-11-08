@@ -129,12 +129,6 @@ python build_exe.py
 
 ---
 
-## 🔄 Automated CI/CD
-
-`midiplay` uses GitHub Actions to automatically run unit tests and compile standalone Windows binaries on every push to the `main` branch. The resulting build is continuously published to the [**`latest` Release**](https://github.com/hgup/midiplay/releases/tag/latest).
-
----
-
 ## 📄 License
 
 Distributed under the [MIT License](LICENSE).
