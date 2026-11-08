@@ -39,10 +39,18 @@ jobs:
         run: |
           pyinstaller --noconfirm --onefile --windowed --name midiplay --clean midiplay/main.py
 
-      - name: Create or Update 'latest' GitHub Release
+      - name: Refresh 'latest' Release Timestamp
+        run: |
+          gh release delete latest --yes --cleanup-tag
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create 'latest' GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
+          target_commitish: ${{ github.sha }}
           name: "midiplay (Latest Build)"
           body: |
             ## 🚀 midiplay — Latest Windows Build
