@@ -89,8 +89,8 @@ class RecordButton(CircleButton):
                 border_color = QColor("#7f1d1d" if is_dark else "#fca5a5")
                 dot_color = QColor("#f87171" if is_dark else "#dc2626")
             else:
-                bg_color = QColor("#22252e" if is_dark else "#ffffff")
-                border_color = QColor("#363b48" if is_dark else "#d2d6df")
+                bg_color = QColor("#252528" if is_dark else "#ffffff")
+                border_color = QColor("#3e3e44" if is_dark else "#d2d6df")
                 dot_color = QColor("#ef4444")
 
             painter.setBrush(QBrush(bg_color))
@@ -129,9 +129,9 @@ class ArmButton(CircleButton):
             border_color = QColor("#78350f" if is_dark else "#fde68a")
             text_color = QColor("#fbbf24" if is_dark else "#d97706")
         else:
-            bg_color = QColor("#22252e" if is_dark else "#ffffff")
-            border_color = QColor("#363b48" if is_dark else "#d2d6df")
-            text_color = QColor("#9ca3b3" if is_dark else "#525866")
+            bg_color = QColor("#252528" if is_dark else "#ffffff")
+            border_color = QColor("#3e3e44" if is_dark else "#d2d6df")
+            text_color = QColor("#909296" if is_dark else "#525866")
 
         painter.setBrush(QBrush(bg_color))
         painter.setPen(QPen(border_color, 1.0 if not is_armed else 1.2))
@@ -159,13 +159,13 @@ class PreviewButton(CircleButton):
         is_dark = self._theme == "dark"
 
         if self._hovered:
-            bg_color = QColor("#333846" if is_dark else "#f4f6f9")
-            border_color = QColor("#545b6e" if is_dark else "#b8bec9")
+            bg_color = QColor("#38383e" if is_dark else "#f4f6f9")
+            border_color = QColor("#4f4f58" if is_dark else "#b8bec9")
             icon_color = QColor("#ffffff" if is_dark else "#1c1f26")
         else:
-            bg_color = QColor("#22252e" if is_dark else "#ffffff")
-            border_color = QColor("#363b48" if is_dark else "#d2d6df")
-            icon_color = QColor("#9ca3b3" if is_dark else "#525866")
+            bg_color = QColor("#252528" if is_dark else "#ffffff")
+            border_color = QColor("#3e3e44" if is_dark else "#d2d6df")
+            icon_color = QColor("#909296" if is_dark else "#525866")
 
         painter.setBrush(QBrush(bg_color))
         painter.setPen(QPen(border_color, 1.0))
