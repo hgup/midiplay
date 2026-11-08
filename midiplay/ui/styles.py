@@ -47,6 +47,8 @@ QLabel#DragHandle {{
     font-size: 13px;
     font-weight: bold;
     padding: 0 4px;
+    min-height: 26px;
+    max-height: 26px;
 }}
 
 QLabel#DragHandle:hover {{
@@ -59,11 +61,12 @@ QPushButton {{
     color: #1c1f26;
     border: 1px solid #d2d6df;
     border-radius: 4px;
-    padding: 2px 8px;
+    padding: 1px 8px;
     font-family: 'Segoe UI', sans-serif;
     font-size: 11px;
     font-weight: 600;
     min-height: 22px;
+    max-height: 22px;
 }}
 
 QPushButton:hover {{
@@ -83,18 +86,22 @@ QPushButton#RecordBtn, QPushButton#ArmBtn, QPushButton#PreviewBtn {{
     border: none;
     padding: 0;
     margin: 0;
+    min-width: 26px;
+    max-width: 26px;
+    min-height: 26px;
+    max-height: 26px;
 }}
 
-/* Insert Action Button (compact 24px) */
+/* Insert Action Button (exact 26px) */
 QPushButton#InsertBtn {{
     background-color: #10b981;
     border: 1px solid #059669;
     color: #ffffff;
     font-weight: 700;
     font-size: 11px;
-    padding: 0 10px;
-    min-height: 24px;
-    max-height: 24px;
+    padding: 1px 10px;
+    min-height: 22px;
+    max-height: 22px;
     border-radius: 4px;
 }}
 
@@ -107,17 +114,18 @@ QPushButton#InsertBtn:pressed {{
     background-color: #047857;
 }}
 
-/* Drawer Toggle Button (borderless 24x24) */
+/* Drawer Toggle Button (borderless 26x26) */
 QPushButton#DrawerBtn {{
     background-color: transparent;
     border: none;
     color: #6b7382;
     font-size: 9px;
-    min-width: 24px;
-    max-width: 24px;
-    min-height: 24px;
-    max-height: 24px;
-    border-radius: 12px;
+    padding: 0;
+    min-width: 26px;
+    max-width: 26px;
+    min-height: 26px;
+    max-height: 26px;
+    border-radius: 13px;
 }}
 
 QPushButton#DrawerBtn:hover {{
@@ -125,18 +133,18 @@ QPushButton#DrawerBtn:hover {{
     color: #1c1f26;
 }}
 
-/* Window Close Button (borderless 24x24) */
+/* Window Close Button (borderless 26x26) */
 QPushButton#WindowCloseBtn {{
     background-color: transparent;
     border: none;
     color: #8c94a4;
     font-size: 11px;
-    min-width: 24px;
-    max-width: 24px;
-    min-height: 24px;
-    max-height: 24px;
+    min-width: 26px;
+    max-width: 26px;
+    min-height: 26px;
+    max-height: 26px;
     padding: 0;
-    border-radius: 12px;
+    border-radius: 13px;
 }}
 
 QPushButton#WindowCloseBtn:hover {{
@@ -152,11 +160,11 @@ QLineEdit#BpmBox {{
     border-radius: 4px;
     font-size: 11px;
     font-weight: 600;
-    min-height: 24px;
-    max-height: 24px;
+    min-height: 22px;
+    max-height: 22px;
     min-width: 64px;
     max-width: 64px;
-    padding: 0;
+    padding: 1px 2px;
 }}
 
 QLineEdit#BpmBox:hover, QLineEdit#BpmBox:focus {{
@@ -173,8 +181,8 @@ QComboBox#MeterCombo, QComboBox#GridCombo {{
     padding: 1px 16px 1px 4px;
     font-size: 11px;
     font-weight: 600;
-    min-height: 24px;
-    max-height: 24px;
+    min-height: 22px;
+    max-height: 22px;
 }}
 
 QComboBox#MeterCombo:hover, QComboBox#GridCombo:hover {{
@@ -200,7 +208,7 @@ QComboBox, QSpinBox, QDoubleSpinBox {{
     color: #1c1f26;
     border: 1px solid #d2d6df;
     border-radius: 4px;
-    padding: 2px 20px 2px 6px;
+    padding: 1px 20px 1px 6px;
     font-size: 11px;
     min-height: 22px;
     max-height: 22px;
@@ -271,6 +279,11 @@ QComboBox QAbstractItemView {{
 }}
 
 /* Modern Sleek Sliders */
+QSlider {{
+    min-height: 26px;
+    max-height: 26px;
+}}
+
 QSlider::groove:horizontal {{
     border: none;
     height: 4px;
@@ -300,6 +313,8 @@ QCheckBox {{
     color: #525866;
     font-size: 11px;
     spacing: 6px;
+    min-height: 26px;
+    max-height: 26px;
 }}
 
 QCheckBox:hover {{
@@ -324,7 +339,7 @@ QCheckBox::indicator:checked {{
     image: url({_RES_PATH}/check_white.png);
 }}
 
-/* Status Pill: fixed width 68px, 24px height */
+/* Status Pill: fixed width 68px, exact 26px height */
 QLabel#StatusPill {{
     border-radius: 4px;
     padding: 0 4px;
@@ -441,6 +456,8 @@ QLabel#DragHandle {{
     font-size: 13px;
     font-weight: bold;
     padding: 0 4px;
+    min-height: 26px;
+    max-height: 26px;
 }}
 
 QLabel#DragHandle:hover {{
@@ -453,11 +470,12 @@ QPushButton {{
     color: #f1f3f7;
     border: 1px solid #3d4352;
     border-radius: 4px;
-    padding: 2px 8px;
+    padding: 1px 8px;
     font-family: 'Segoe UI', sans-serif;
     font-size: 11px;
     font-weight: 600;
     min-height: 22px;
+    max-height: 22px;
 }}
 
 QPushButton:hover {{
@@ -477,18 +495,22 @@ QPushButton#RecordBtn, QPushButton#ArmBtn, QPushButton#PreviewBtn {{
     border: none;
     padding: 0;
     margin: 0;
+    min-width: 26px;
+    max-width: 26px;
+    min-height: 26px;
+    max-height: 26px;
 }}
 
-/* Insert Action Button (compact 24px) */
+/* Insert Action Button (exact 26px) */
 QPushButton#InsertBtn {{
     background-color: #10b981;
     border: 1px solid #059669;
     color: #ffffff;
     font-weight: 700;
     font-size: 11px;
-    padding: 0 10px;
-    min-height: 24px;
-    max-height: 24px;
+    padding: 1px 10px;
+    min-height: 22px;
+    max-height: 22px;
     border-radius: 4px;
 }}
 
@@ -501,17 +523,18 @@ QPushButton#InsertBtn:pressed {{
     background-color: #047857;
 }}
 
-/* Drawer Toggle Button (borderless 24x24) */
+/* Drawer Toggle Button (borderless 26x26) */
 QPushButton#DrawerBtn {{
     background-color: transparent;
     border: none;
     color: #9ca3b3;
     font-size: 9px;
-    min-width: 24px;
-    max-width: 24px;
-    min-height: 24px;
-    max-height: 24px;
-    border-radius: 12px;
+    padding: 0;
+    min-width: 26px;
+    max-width: 26px;
+    min-height: 26px;
+    max-height: 26px;
+    border-radius: 13px;
 }}
 
 QPushButton#DrawerBtn:hover {{
@@ -519,18 +542,18 @@ QPushButton#DrawerBtn:hover {{
     color: #ffffff;
 }}
 
-/* Window Close Button (borderless 24x24) */
+/* Window Close Button (borderless 26x26) */
 QPushButton#WindowCloseBtn {{
     background-color: transparent;
     border: none;
     color: #71717a;
     font-size: 11px;
-    min-width: 24px;
-    max-width: 24px;
-    min-height: 24px;
-    max-height: 24px;
+    min-width: 26px;
+    max-width: 26px;
+    min-height: 26px;
+    max-height: 26px;
     padding: 0;
-    border-radius: 12px;
+    border-radius: 13px;
 }}
 
 QPushButton#WindowCloseBtn:hover {{
@@ -546,11 +569,11 @@ QLineEdit#BpmBox {{
     border-radius: 4px;
     font-size: 11px;
     font-weight: 600;
-    min-height: 24px;
-    max-height: 24px;
+    min-height: 22px;
+    max-height: 22px;
     min-width: 64px;
     max-width: 64px;
-    padding: 0;
+    padding: 1px 2px;
 }}
 
 QLineEdit#BpmBox:hover, QLineEdit#BpmBox:focus {{
@@ -567,8 +590,8 @@ QComboBox#MeterCombo, QComboBox#GridCombo {{
     padding: 1px 16px 1px 4px;
     font-size: 11px;
     font-weight: 600;
-    min-height: 24px;
-    max-height: 24px;
+    min-height: 22px;
+    max-height: 22px;
 }}
 
 QComboBox#MeterCombo:hover, QComboBox#GridCombo:hover {{
@@ -594,7 +617,7 @@ QComboBox, QSpinBox, QDoubleSpinBox {{
     color: #f1f3f7;
     border: 1px solid #363b48;
     border-radius: 4px;
-    padding: 2px 20px 2px 6px;
+    padding: 1px 20px 1px 6px;
     font-size: 11px;
     min-height: 22px;
     max-height: 22px;
@@ -665,6 +688,11 @@ QComboBox QAbstractItemView {{
 }}
 
 /* Modern Sleek Sliders */
+QSlider {{
+    min-height: 26px;
+    max-height: 26px;
+}}
+
 QSlider::groove:horizontal {{
     border: none;
     height: 4px;
@@ -694,6 +722,8 @@ QCheckBox {{
     color: #9ca3b3;
     font-size: 11px;
     spacing: 6px;
+    min-height: 26px;
+    max-height: 26px;
 }}
 
 QCheckBox:hover {{
@@ -718,7 +748,7 @@ QCheckBox::indicator:checked {{
     image: url({_RES_PATH}/check_white.png);
 }}
 
-/* Status Pill: fixed width 68px, 24px height */
+/* Status Pill: fixed width 68px, exact 26px height */
 QLabel#StatusPill {{
     border-radius: 4px;
     padding: 0 4px;

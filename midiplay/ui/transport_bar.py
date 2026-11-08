@@ -193,7 +193,7 @@ class BpmBadge(QLineEdit):
         self._val = val
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setFixedWidth(64)
-        self.setFixedHeight(24)
+        self.setFixedHeight(26)
         self.setToolTip("Tempo (BPM) — Auto-detected from MuseScore; scroll wheel or type to edit")
         self.returnPressed.connect(self._on_edit)
 
@@ -286,11 +286,12 @@ class TransportBar(QWidget):
         self._drag_start_pos: QPoint | None = None
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setContentsMargins(6, 5, 6, 5)
         layout.setSpacing(5)
 
         # 1. Drag Handle
         self.drag_handle = DragHandle(self)
+        self.drag_handle.setFixedHeight(26)
         layout.addWidget(self.drag_handle)
 
         # 2. Record: circular icon button
@@ -313,6 +314,7 @@ class TransportBar(QWidget):
 
         # 5. BPM Tempo Badge: clean borderless badge
         self.bpm_box = BpmBadge(120, self)
+        self.bpm_box.setFixedSize(64, 26)
         self.bpm_box.valueChanged.connect(lambda v: self.bpm_changed.emit(float(v)))
         layout.addWidget(self.bpm_box)
 
@@ -320,8 +322,7 @@ class TransportBar(QWidget):
         self.meter_combo = QComboBox()
         self.meter_combo.setObjectName("MeterCombo")
         self.meter_combo.addItems(["4/4", "3/4", "2/4", "6/8", "5/4", "7/8"])
-        self.meter_combo.setFixedWidth(52)
-        self.meter_combo.setFixedHeight(24)
+        self.meter_combo.setFixedSize(52, 26)
         self.meter_combo.setToolTip("Time Signature")
         self.meter_combo.currentTextChanged.connect(self._on_meter_change)
         layout.addWidget(self.meter_combo)
@@ -332,44 +333,42 @@ class TransportBar(QWidget):
         for g in QuantizeGrid:
             self.grid_combo.addItem(g.value, g)
         self.grid_combo.setCurrentText("1/16")
-        self.grid_combo.setFixedWidth(56)
-        self.grid_combo.setFixedHeight(24)
+        self.grid_combo.setFixedSize(56, 26)
         self.grid_combo.setToolTip("Quantize Grid")
         self.grid_combo.currentIndexChanged.connect(self._on_grid_change)
         layout.addWidget(self.grid_combo)
 
-        # 8. Insert Action Button (compact 24px height)
+        # 8. Insert Action Button (exact 26px height)
         self.insert_btn = QPushButton("Insert")
         self.insert_btn.setObjectName("InsertBtn")
-        self.insert_btn.setFixedHeight(24)
+        self.insert_btn.setFixedHeight(26)
         self.insert_btn.setToolTip("Insert notes into currently selected MuseScore measure")
         self.insert_btn.clicked.connect(self.insert_clicked.emit)
         layout.addWidget(self.insert_btn)
 
-        # 9. Status Micro-Pill (Fixed width 68px, 24px height, clickable to sync)
+        # 9. Status Micro-Pill (Fixed width 68px, exact 26px height, clickable to sync)
         self.status_pill = QLabel("IDLE")
         self.status_pill.setObjectName("StatusPill")
         self.status_pill.setProperty("state", "IDLE")
         self.status_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_pill.setFixedWidth(68)
-        self.status_pill.setFixedHeight(24)
+        self.status_pill.setFixedSize(68, 26)
         self.status_pill.setCursor(Qt.CursorShape.PointingHandCursor)
         self.status_pill.setToolTip("Status / Click to Sync with MuseScore")
         self.status_pill.mousePressEvent = lambda e: self.status_clicked.emit()
         layout.addWidget(self.status_pill)
 
-        # 10. Expand Drawer Button (borderless 24x24)
+        # 10. Expand Drawer Button (borderless 26x26)
         self.drawer_btn = QPushButton("▼")
         self.drawer_btn.setObjectName("DrawerBtn")
-        self.drawer_btn.setFixedSize(24, 24)
+        self.drawer_btn.setFixedSize(26, 26)
         self.drawer_btn.setToolTip("Settings, Theme Switcher & Piano Roll")
         self.drawer_btn.clicked.connect(self._toggle_drawer)
         layout.addWidget(self.drawer_btn)
 
-        # 11. Minimalist Close Button (borderless 24x24)
+        # 11. Minimalist Close Button (borderless 26x26)
         self.close_btn = QPushButton("✕")
         self.close_btn.setObjectName("WindowCloseBtn")
-        self.close_btn.setFixedSize(24, 24)
+        self.close_btn.setFixedSize(26, 26)
         self.close_btn.setToolTip("Close midiplay")
         self.close_btn.clicked.connect(self.close_clicked.emit)
         layout.addWidget(self.close_btn)
