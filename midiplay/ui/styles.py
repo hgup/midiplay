@@ -421,38 +421,38 @@ QProgressBar::chunk {{
 # --- Pro Studio Obsidian Dark Theme (Exact Layout Match with Dark Palette) ---
 DARK_THEME_QSS = f"""
 QMainWindow {{
-    background-color: #1a1c22;
-    color: #f1f3f7;
-    border: 1px solid #323642;
+    background-color: #2d2d30;
+    color: #e2e4e6;
+    border: 1px solid #3e3e44;
     border-radius: 8px;
 }}
 
 QWidget#CentralWidget {{
-    background-color: #1a1c22;
+    background-color: #2d2d30;
     border-radius: 8px;
 }}
 
 QWidget#ToolbarStrip {{
-    background-color: #1a1c22;
+    background-color: #2d2d30;
     border-radius: 8px;
 }}
 
 QWidget#DrawerWidget {{
-    background-color: #14151a;
-    border-top: 1px solid #282b35;
+    background-color: #252528;
+    border-top: 1px solid #38383e;
     border-bottom-left-radius: 8px;
     border-bottom-right-radius: 8px;
 }}
 
 QLabel {{
-    color: #9ca3b3;
+    color: #909296;
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     font-size: 11px;
     font-weight: 500;
 }}
 
 QLabel#DragHandle {{
-    color: #666d7d;
+    color: #6a6a72;
     font-size: 13px;
     font-weight: bold;
     padding: 0 4px;
@@ -461,14 +461,14 @@ QLabel#DragHandle {{
 }}
 
 QLabel#DragHandle:hover {{
-    color: #9ca3b3;
+    color: #dce2de;
 }}
 
 /* Generic buttons inside drawer / dialogs */
 QPushButton {{
-    background-color: #282c37;
-    color: #f1f3f7;
-    border: 1px solid #3d4352;
+    background-color: #333338;
+    color: #e2e4e6;
+    border: 1px solid #44444c;
     border-radius: 4px;
     padding: 1px 8px;
     font-family: 'Segoe UI', sans-serif;
@@ -479,14 +479,14 @@ QPushButton {{
 }}
 
 QPushButton:hover {{
-    background-color: #333846;
-    border-color: #545b6e;
+    background-color: #3e3e46;
+    border-color: #555560;
     color: #ffffff;
 }}
 
 QPushButton:pressed {{
-    background-color: #1e212a;
-    border-color: #3d4352;
+    background-color: #28282c;
+    border-color: #3e3e44;
 }}
 
 /* Custom painted circular buttons: transparent to let QPainter render cleanly */
@@ -501,10 +501,10 @@ QPushButton#RecordBtn, QPushButton#ArmBtn, QPushButton#PreviewBtn {{
     max-height: 26px;
 }}
 
-/* Insert Action Button (exact 26px) */
+/* Insert Action Button: MuseScore 4 signature accent blue */
 QPushButton#InsertBtn {{
-    background-color: #10b981;
-    border: 1px solid #059669;
+    background-color: #2474c0;
+    border: 1px solid #1f6cb6;
     color: #ffffff;
     font-weight: 700;
     font-size: 11px;
@@ -515,19 +515,19 @@ QPushButton#InsertBtn {{
 }}
 
 QPushButton#InsertBtn:hover {{
-    background-color: #059669;
-    border-color: #047857;
+    background-color: #2c83d6;
+    border-color: #2474c0;
 }}
 
 QPushButton#InsertBtn:pressed {{
-    background-color: #047857;
+    background-color: #1c5f9e;
 }}
 
 /* Drawer Toggle Button (borderless 26x26) */
 QPushButton#DrawerBtn {{
     background-color: transparent;
     border: none;
-    color: #9ca3b3;
+    color: #909296;
     font-size: 9px;
     padding: 0;
     min-width: 26px;
@@ -538,7 +538,7 @@ QPushButton#DrawerBtn {{
 }}
 
 QPushButton#DrawerBtn:hover {{
-    background-color: #282c37;
+    background-color: #38383e;
     color: #ffffff;
 }}
 
@@ -546,7 +546,7 @@ QPushButton#DrawerBtn:hover {{
 QPushButton#WindowCloseBtn {{
     background-color: transparent;
     border: none;
-    color: #71717a;
+    color: #787880;
     font-size: 11px;
     min-width: 26px;
     max-width: 26px;
@@ -557,15 +557,15 @@ QPushButton#WindowCloseBtn {{
 }}
 
 QPushButton#WindowCloseBtn:hover {{
-    background-color: #450a0a;
+    background-color: #4a1d1d;
     color: #fca5a5;
 }}
 
 /* Tempo BPM Badge */
 QLineEdit#BpmBox {{
-    background-color: #22252e;
-    color: #f1f3f7;
-    border: 1px solid #363b48;
+    background-color: #222225;
+    color: #e2e4e6;
+    border: 1px solid #3e3e44;
     border-radius: 4px;
     font-size: 11px;
     font-weight: 600;
@@ -577,15 +577,15 @@ QLineEdit#BpmBox {{
 }}
 
 QLineEdit#BpmBox:hover, QLineEdit#BpmBox:focus {{
-    background-color: #22252e;
-    border-color: #3b82f6;
+    background-color: #222225;
+    border-color: #2474c0;
 }}
 
 /* Meter and Grid comboboxes in toolbar */
 QComboBox#MeterCombo, QComboBox#GridCombo {{
-    background-color: #22252e;
-    color: #f1f3f7;
-    border: 1px solid #363b48;
+    background-color: #222225;
+    color: #e2e4e6;
+    border: 1px solid #3e3e44;
     border-radius: 4px;
     padding: 1px 16px 1px 4px;
     font-size: 11px;
@@ -595,7 +595,7 @@ QComboBox#MeterCombo, QComboBox#GridCombo {{
 }}
 
 QComboBox#MeterCombo:hover, QComboBox#GridCombo:hover {{
-    border-color: #3b82f6;
+    border-color: #2474c0;
 }}
 
 QComboBox#MeterCombo::drop-down, QComboBox#GridCombo::drop-down {{
@@ -613,9 +613,9 @@ QComboBox#MeterCombo::down-arrow, QComboBox#GridCombo::down-arrow {{
 
 /* Drawer combos and spinboxes */
 QComboBox, QSpinBox, QDoubleSpinBox {{
-    background-color: #22252e;
-    color: #f1f3f7;
-    border: 1px solid #363b48;
+    background-color: #222225;
+    color: #e2e4e6;
+    border: 1px solid #3e3e44;
     border-radius: 4px;
     padding: 1px 20px 1px 6px;
     font-size: 11px;
@@ -624,11 +624,11 @@ QComboBox, QSpinBox, QDoubleSpinBox {{
 }}
 
 QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover {{
-    border-color: #545b6e;
+    border-color: #555560;
 }}
 
 QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
-    border-color: #3b82f6;
+    border-color: #2474c0;
 }}
 
 QComboBox::drop-down {{
@@ -674,15 +674,15 @@ QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
 
 QSpinBox::up-button:hover, QSpinBox::down-button:hover,
 QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {{
-    background-color: #333846;
+    background-color: #38383e;
 }}
 
 QComboBox QAbstractItemView {{
-    background-color: #22252e;
-    color: #f1f3f7;
-    selection-background-color: #3b82f6;
+    background-color: #222225;
+    color: #e2e4e6;
+    selection-background-color: #2474c0;
     selection-color: #ffffff;
-    border: 1px solid #363b48;
+    border: 1px solid #3e3e44;
     outline: none;
     padding: 2px;
 }}
@@ -696,18 +696,18 @@ QSlider {{
 QSlider::groove:horizontal {{
     border: none;
     height: 4px;
-    background: #2e3340;
+    background: #38383e;
     border-radius: 2px;
 }}
 
 QSlider::sub-page:horizontal {{
-    background: #3b82f6;
+    background: #2474c0;
     border-radius: 2px;
 }}
 
 QSlider::handle:horizontal {{
-    background: #3b82f6;
-    border: 2px solid #14151a;
+    background: #2474c0;
+    border: 2px solid #252528;
     width: 14px;
     margin-top: -5px;
     margin-bottom: -5px;
@@ -715,11 +715,11 @@ QSlider::handle:horizontal {{
 }}
 
 QSlider::handle:horizontal:hover {{
-    background: #60a5fa;
+    background: #3a8be0;
 }}
 
 QCheckBox {{
-    color: #9ca3b3;
+    color: #909296;
     font-size: 11px;
     spacing: 6px;
     min-height: 26px;
@@ -727,24 +727,24 @@ QCheckBox {{
 }}
 
 QCheckBox:hover {{
-    color: #f1f3f7;
+    color: #e2e4e6;
 }}
 
 QCheckBox::indicator {{
     width: 14px;
     height: 14px;
     border-radius: 3px;
-    border: 1px solid #3f4554;
-    background: #22252e;
+    border: 1px solid #44444c;
+    background: #222225;
 }}
 
 QCheckBox::indicator:hover {{
-    border-color: #3b82f6;
+    border-color: #2474c0;
 }}
 
 QCheckBox::indicator:checked {{
-    background: #3b82f6;
-    border-color: #2563eb;
+    background: #2474c0;
+    border-color: #1f6cb6;
     image: url({_RES_PATH}/check_white.png);
 }}
 
@@ -761,50 +761,50 @@ QLabel#StatusPill {{
 }}
 
 QLabel#StatusPill[state="IDLE"] {{
-    background-color: #22252e;
-    color: #9ca3b3;
-    border: 1px solid #363b48;
+    background-color: #252528;
+    color: #909296;
+    border: 1px solid #3e3e44;
 }}
 
 QLabel#StatusPill[state="COUNT_IN"] {{
-    background-color: #382405;
+    background-color: #3b2805;
     color: #fbbf24;
     border: 1px solid #78350f;
 }}
 
 QLabel#StatusPill[state="RECORDING"] {{
-    background-color: #3b1219;
+    background-color: #3d1419;
     color: #f87171;
     border: 1px solid #7f1d1d;
 }}
 
 QLabel#StatusPill[state="QUANTIZING"] {{
-    background-color: #0c2d48;
+    background-color: #132a42;
     color: #38bdf8;
-    border: 1px solid #075985;
+    border: 1px solid #1f6cb6;
 }}
 
 QLabel#StatusPill[state="COPIED"] {{
-    background-color: #063826;
+    background-color: #0d3322;
     color: #4ade80;
     border: 1px solid #166534;
 }}
 
 QLabel#StatusPill[state="INSERTED"] {{
-    background-color: #063826;
+    background-color: #0d3322;
     color: #4ade80;
     border: 1px solid #166534;
 }}
 
 QLabel#StatusPill[state="SYNCED"] {{
-    background-color: #271a45;
-    color: #c084fc;
-    border: 1px solid #581c87;
+    background-color: #1b2f4a;
+    color: #60a5fa;
+    border: 1px solid #2474c0;
 }}
 
 QDialog {{
-    background-color: #1a1c22;
-    color: #f1f3f7;
+    background-color: #2d2d30;
+    color: #e2e4e6;
 }}
 
 QLabel#CalibrationStatus {{
@@ -814,18 +814,17 @@ QLabel#CalibrationStatus {{
 }}
 
 QProgressBar {{
-    background-color: #22252e;
-    border: 1px solid #363b48;
+    background-color: #222225;
+    border: 1px solid #3e3e44;
     border-radius: 4px;
     height: 12px;
     text-align: center;
 }}
 
 QProgressBar::chunk {{
-    background-color: #3b82f6;
+    background-color: #2474c0;
     border-radius: 3px;
-}}
-"""
+}}"""
 
 # Color palettes for custom-rendered widgets (such as PianoRoll)
 PIANO_ROLL_PALETTES: Dict[str, Dict[str, str]] = {
@@ -844,17 +843,17 @@ PIANO_ROLL_PALETTES: Dict[str, Dict[str, str]] = {
         "playhead": "#ef4444",
     },
     "dark": {
-        "background": "#101115",
-        "border": "#2e3340",
-        "placeholder": "#666d7d",
-        "barline": "#363b48",
-        "beatline": "#20232c",
-        "measure_label": "#9ca3b3",
-        "note_fill": "#3b82f6",
-        "note_border": "#2563eb",
+        "background": "#1c1c1f",
+        "border": "#3e3e44",
+        "placeholder": "#787880",
+        "barline": "#38383e",
+        "beatline": "#252528",
+        "measure_label": "#909296",
+        "note_fill": "#2474c0",
+        "note_border": "#1b5d9b",
         "note_text": "#ffffff",
-        "triplet_note_fill": "#a78bfa",
-        "triplet_note_border": "#8b5cf6",
-        "playhead": "#f87171",
+        "triplet_note_fill": "#9333ea",
+        "triplet_note_border": "#7e22ce",
+        "playhead": "#ef4444",
     }
 }
